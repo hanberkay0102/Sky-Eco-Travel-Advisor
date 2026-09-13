@@ -1,0 +1,44 @@
+# ══════════════════════════════════════════════════════════════
+# Sky Eco-Travel Advisor — HuggingFace Spaces Dockerfile
+# Runs Rasa server + Action server + Frontend behind nginx
+# ══════════════════════════════════════════════════════════════
+FROM python:3.10-slim
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rasa and dependencies
+RUN pip install --no-cache-dir \
+    rasa==3.6.21 \
+    rasa-sdk==3.6.2 \
+    requests \
+    python-dotenv
+
+# Create app directory
+WORKDIR /app
+
+# Copy project files
+COPY config.yml domain.yml credentials.yml endpoints.yml ./
+COPY data/ ./data/
+COPY actions/ ./actions/
+COPY frontend/ ./frontend/
+
+# Copy the trained model (only the latest one)
+COPY models/ ./models/
+
+# Copy HF-specific config files
+COPY nginx.hf.conf /etc/nginx/nginx.conf
+COPY start_hf.sh ./start_hf.sh
+RUN chmod +x ./start_hf.sh
+
+# Override RASA_SERVER_URL to use relative path (nginx proxies it)
+RUN sed -i 's|const RASA_SERVER_URL = "http://localhost:5005"|const RASA_SERVER_URL = ""|g' ./frontend/index.html
+
+# HuggingFace Spaces exposes port 7860
+EXPOSE 7860
+
+# Start all services
+CMD ["./start_hf.sh"]
