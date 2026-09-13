@@ -1,0 +1,224 @@
+# ══════════════════════════════════════════════════════════════
+# Test Stories for Eco-Travel Advisor (Sky)
+# These test stories verify that the bot responds correctly
+# to different conversation flows. Run with: rasa test
+# ══════════════════════════════════════════════════════════════
+
+stories:
+
+# ----------------------------------------------------------
+# Basic Greeting & Farewell
+# ----------------------------------------------------------
+
+- story: test greet and goodbye
+  steps:
+    - user: |
+        hello!
+      intent: greet
+    - action: action_greet
+    - user: |
+        bye!
+      intent: goodbye
+    - action: utter_goodbye
+
+# ----------------------------------------------------------
+# Bot Challenge
+# ----------------------------------------------------------
+
+- story: test bot challenge
+  steps:
+    - user: |
+        are you a real person?
+      intent: bot_challenge
+    - action: utter_iamabot
+
+# ----------------------------------------------------------
+# Thank You
+# ----------------------------------------------------------
+
+- story: test thank you
+  steps:
+    - user: |
+        thanks a lot!
+      intent: thank_you
+    - action: utter_you_are_welcome
+
+# ----------------------------------------------------------
+# Help Request
+# ----------------------------------------------------------
+
+- story: test ask for help
+  steps:
+    - user: |
+        what can you do?
+      intent: ask_help
+    - action: utter_help
+
+# ----------------------------------------------------------
+# Sustainability Tips
+# ----------------------------------------------------------
+
+- story: test sustainability tips
+  steps:
+    - user: |
+        give me some eco travel tips
+      intent: ask_sustainability_tips
+    - action: utter_sustainability_tips
+
+# ----------------------------------------------------------
+# Transport Search Flow
+# ----------------------------------------------------------
+
+- story: test search transport
+  steps:
+    - user: |
+        show me transport options to Berlin
+      intent: search_transport
+    - action: action_search_transport
+
+# ----------------------------------------------------------
+# Compare Transport
+# ----------------------------------------------------------
+
+- story: test compare transport
+  steps:
+    - user: |
+        compare train and plane
+      intent: compare_transport
+    - action: action_compare_transport
+
+# ----------------------------------------------------------
+# Accommodation Search
+# ----------------------------------------------------------
+
+- story: test search accommodation
+  steps:
+    - user: |
+        find me eco-friendly hotels
+      intent: search_accommodation
+    - action: action_search_accommodation
+
+# ----------------------------------------------------------
+# Activities Search
+# ----------------------------------------------------------
+
+- story: test search activities
+  steps:
+    - user: |
+        what green activities can I do there?
+      intent: search_activities
+    - action: action_search_activities
+
+# ----------------------------------------------------------
+# Carbon Footprint → Offset
+# ----------------------------------------------------------
+
+- story: test carbon footprint then offset
+  steps:
+    - user: |
+        what is my carbon footprint?
+      intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+    - user: |
+        how can I offset my emissions?
+      intent: ask_carbon_offset
+    - action: action_carbon_offset
+
+# ----------------------------------------------------------
+# Carbon Footprint Only
+# ----------------------------------------------------------
+
+- story: test carbon footprint only
+  steps:
+    - user: |
+        calculate my carbon emissions
+      intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+
+# ----------------------------------------------------------
+# Human Handover — Accept
+# ----------------------------------------------------------
+
+- story: test human handover accept
+  steps:
+    - user: |
+        I want to talk to a real person
+      intent: request_human
+    - action: utter_handover_confirm
+    - user: |
+        yes please
+      intent: affirm
+    - action: action_handover_to_human
+
+# ----------------------------------------------------------
+# Human Handover — Decline
+# ----------------------------------------------------------
+
+- story: test human handover decline
+  steps:
+    - user: |
+        let me speak to a human
+      intent: request_human
+    - action: utter_handover_confirm
+    - user: |
+        no, it's fine
+      intent: deny
+    - action: utter_help
+
+# ----------------------------------------------------------
+# Out of Scope
+# ----------------------------------------------------------
+
+- story: test out of scope
+  steps:
+    - user: |
+        what's the weather like on Mars?
+      intent: out_of_scope
+    - action: action_handle_out_of_scope
+
+# ----------------------------------------------------------
+# Full Post-Summary Flow
+# ----------------------------------------------------------
+
+- story: test full post-summary flow
+  steps:
+    - action: action_trip_summary
+    - user: |
+        show me transport options
+      intent: search_transport
+    - action: action_search_transport
+    - user: |
+        find hotels there
+      intent: search_accommodation
+    - action: action_search_accommodation
+    - user: |
+        what's my carbon footprint?
+      intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+    - user: |
+        thank you!
+      intent: thank_you
+    - action: utter_you_are_welcome
+    - user: |
+        goodbye
+      intent: goodbye
+    - action: utter_goodbye
+
+# ----------------------------------------------------------
+# Transport → Compare → Offset Chain
+# ----------------------------------------------------------
+
+- story: test transport then compare then offset
+  steps:
+    - user: |
+        find transport from London to Paris
+      intent: search_transport
+    - action: action_search_transport
+    - user: |
+        compare the options
+      intent: compare_transport
+    - action: action_compare_transport
+    - user: |
+        I want to offset my carbon
+      intent: ask_carbon_offset
+    - action: action_carbon_offset

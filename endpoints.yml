@@ -1,0 +1,26 @@
+# ══════════════════════════════════════════════════════════════
+# Endpoints Configuration
+# This file tells Rasa where to find external services.
+# The most important one is the action server — the Python
+# process that runs our custom actions (actions.py).
+# ══════════════════════════════════════════════════════════════
+
+# Action Server — runs custom Python actions
+# When Rasa needs to execute a custom action (like
+# action_search_transport), it sends a request to this URL.
+# Default port is 5055. You start the action server with:
+#   rasa run actions
+action_endpoint:
+  url: "http://localhost:5055/webhook"
+
+# Tracker Store — where conversation history is saved
+# By default Rasa uses InMemoryTrackerStore (no config needed).
+# For production, you would use a database like PostgreSQL:
+# tracker_store:
+#   type: SQL
+#   dialect: "postgresql"
+#   url: "localhost"
+#   port: 5432
+#   username: "rasa"
+#   password: "rasa"
+#   db: "rasa_tracker"

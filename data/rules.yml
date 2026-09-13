@@ -1,0 +1,437 @@
+version: "3.1"
+
+rules:
+
+# ==================================================
+# RULE 1 - Greeting
+# ==================================================
+
+- rule: always greet back
+  steps:
+    - intent: greet
+    - action: action_greet
+
+# ==================================================
+# RULE 2 - Goodbye
+# ==================================================
+
+- rule: always say goodbye
+  steps:
+    - intent: goodbye
+    - action: utter_goodbye
+
+# ==================================================
+# RULE 3 - Bot Challenge
+# ==================================================
+
+- rule: always answer bot challenge
+  steps:
+    - intent: bot_challenge
+    - action: utter_iamabot
+
+# ==================================================
+# RULE 4 - Thank You
+# ==================================================
+
+- rule: always respond to thanks
+  steps:
+    - intent: thank_you
+    - action: utter_you_are_welcome
+
+# ==================================================
+# RULE 5 - Help
+# ==================================================
+
+- rule: always show help
+  steps:
+    - intent: ask_help
+    - action: utter_help
+
+# ==================================================
+# RULE 6 - Out of Scope
+# ==================================================
+
+- rule: handle out of scope
+  condition:
+    - active_loop: null
+  steps:
+    - intent: out_of_scope
+    - action: action_handle_out_of_scope
+
+# ==================================================
+# RULE 7 - Sustainability Tips
+# ==================================================
+
+- rule: provide sustainability tips
+  steps:
+    - intent: ask_sustainability_tips
+    - action: utter_sustainability_tips
+
+# ==================================================
+# RULE 8 - Two-Stage Fallback
+# ==================================================
+
+- rule: handle fallback (2-stage via custom action)
+  condition:
+    - active_loop: null
+  steps:
+    - intent: nlu_fallback
+    - action: action_two_stage_fallback
+
+# ==================================================
+# RULE 9 - Activate Trip Planning Form
+# When the user says they want to plan a trip,
+# the form starts collecting trip details.
+# ==================================================
+
+- rule: activate trip planning form
+  steps:
+    - intent: plan_trip
+    - action: action_restart_trip
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 10 - Activate Form on Direct Destination
+# User skips "plan a trip" and gives destination
+# directly. Form still activates.
+# ==================================================
+
+- rule: activate form on direct destination
+  steps:
+    - intent: provide_destination
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 11 - Submit Trip Planning Form
+# When all required slots are filled, the form
+# deactivates and the trip summary is shown.
+# ==================================================
+
+- rule: submit trip planning form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - action: trip_planning_form
+    - active_loop: null
+    - action: action_trip_summary
+
+# ==================================================
+# RULE 12 - Handle Help During Form
+# If user asks for help while filling form,
+# show help then continue the form.
+# ==================================================
+
+- rule: handle help during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: ask_help
+    - action: utter_help
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 13 - Handle Human Request During Form
+# If user wants human help while filling form,
+# hand over to human.
+# ==================================================
+
+- rule: handle human request during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: request_human
+    - action: action_handover_to_human
+    - active_loop: null
+
+# ==================================================
+# RULE 14 - Handle Fallback During Form
+# When the user types something NLU cannot classify
+# (e.g. a typo like "parisss"), let the form handle
+# it via from_text mapping instead of triggering the
+# two-stage fallback. The form validator will do
+# fuzzy correction on the raw text.
+# ==================================================
+
+- rule: handle fallback during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: nlu_fallback
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 15 - Handle Out of Scope During Form
+# When the user says something off-topic while
+# filling the form, the custom action redirects
+# them back, then the form continues asking.
+# ==================================================
+
+- rule: handle out of scope during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: out_of_scope
+    - action: action_handle_out_of_scope
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 16 - Handle Cancel During Form
+# When the user wants to cancel/restart while
+# filling the form, deactivate the loop.
+# ==================================================
+
+- rule: handle cancel during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: cancel
+    - action: utter_cancel
+    - action: action_deactivate_loop
+    - active_loop: null
+
+# ==================================================
+# RULE 17 - Handle Cancel Outside Form
+# When the user says cancel but no form is active,
+# just acknowledge there is nothing to cancel.
+# ==================================================
+
+- rule: handle cancel outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: cancel
+    - action: utter_nothing_to_cancel
+
+# ==================================================
+# RULE 18 - Handle Deny During Form
+# When the user says "no" / "I don't want to"
+# during form, acknowledge and keep the form open
+# so it re-asks the current slot.
+# ==================================================
+
+- rule: handle deny during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: deny
+    - action: utter_ask_rephrase
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 19 - Handle Goodbye During Form
+# If user says goodbye while filling the form,
+# deactivate the loop and say goodbye.
+# ==================================================
+
+- rule: handle goodbye during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: goodbye
+    - action: utter_goodbye
+    - action: action_deactivate_loop
+    - active_loop: null
+
+# ==================================================
+# RULE 20 - Handle Greet During Form
+# If user sends a greeting while filling the form,
+# acknowledge and continue the form.
+# ==================================================
+
+- rule: handle greet during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: greet
+    - action: action_greet
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 21 - Handle Bot Challenge During Form
+# If user asks "are you a bot?" during form,
+# answer and continue collecting slots.
+# ==================================================
+
+- rule: handle bot challenge during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: bot_challenge
+    - action: utter_iamabot
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 22 - Handle Thank You During Form
+# If user says thanks during form, respond
+# politely and continue the form.
+# ==================================================
+
+- rule: handle thank you during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: thank_you
+    - action: utter_you_are_welcome
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 23 - Search Transport (outside form)
+# When user asks for transport search and no form
+# is active, run the transport search action.
+# ==================================================
+
+- rule: search transport outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: search_transport
+    - action: action_search_transport
+
+# ==================================================
+# RULE 24 - Search Accommodation (outside form)
+# ==================================================
+
+- rule: search accommodation outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: search_accommodation
+    - action: action_search_accommodation
+
+# ==================================================
+# RULE 25 - Search Activities (outside form)
+# ==================================================
+
+- rule: search activities outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: search_activities
+    - action: action_search_activities
+
+# ==================================================
+# RULE 26 - Calculate Carbon Footprint (outside form)
+# ==================================================
+
+- rule: calculate carbon outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+
+# ==================================================
+# RULE 27 - Carbon Offset (outside form)
+# ==================================================
+
+- rule: carbon offset outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: ask_carbon_offset
+    - action: action_carbon_offset
+
+# ==================================================
+# RULE 28 - Compare Transport (outside form)
+# ==================================================
+
+- rule: compare transport outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: compare_transport
+    - action: action_compare_transport
+
+
+# ==================================================
+# RULE 29 - Weather Forecast (outside form)
+# When user asks for weather and no form is active,
+# run the weather action.
+# ==================================================
+
+- rule: get weather outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: ask_weather
+    - action: action_get_weather
+
+# ==================================================
+# RULE 30 - City Information (outside form)
+# When user asks about a city and no form is active,
+# run the city info action.
+# ==================================================
+
+- rule: get city info outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: ask_city_info
+    - action: action_get_city_info
+
+# ==================================================
+# RULE 31 - Currency Exchange (outside form)
+# When user asks about currency and no form is active,
+# run the currency convert action.
+# ==================================================
+
+- rule: currency convert outside form
+  condition:
+    - active_loop: null
+  steps:
+    - intent: ask_currency
+    - action: action_currency_convert
+
+# ==================================================
+# RULE 32 - Handle Weather During Form
+# If user asks for weather while filling form,
+# show weather then continue the form.
+# ==================================================
+
+- rule: handle weather during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: ask_weather
+    - action: action_get_weather
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 33 - Handle City Info During Form
+# If user asks for city info while filling form,
+# show info then continue the form.
+# ==================================================
+
+- rule: handle city info during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: ask_city_info
+    - action: action_get_city_info
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# RULE 34 - Handle Currency During Form
+# If user asks about currency while filling form,
+# convert then continue the form.
+# ==================================================
+
+- rule: handle currency during form
+  condition:
+    - active_loop: trip_planning_form
+  steps:
+    - intent: ask_currency
+    - action: action_currency_convert
+    - action: trip_planning_form
+    - active_loop: trip_planning_form

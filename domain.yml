@@ -1,0 +1,439 @@
+version: "3.1"
+
+# ==================================================
+# INTENTS
+# ==================================================
+
+intents:
+  - greet
+  - goodbye
+  - affirm
+  - deny
+  - bot_challenge
+  - thank_you
+  - ask_help
+  - plan_trip
+  - search_transport
+  - compare_transport
+  - search_accommodation
+  - search_activities
+  - ask_carbon_footprint
+  - ask_carbon_offset
+  - ask_sustainability_tips
+  - provide_destination
+  - provide_origin
+  - provide_dates
+  - provide_budget
+  - provide_travelers
+  - provide_sustainability_preference
+  - ask_weather
+  - ask_city_info
+  - ask_currency
+  - request_human
+  - out_of_scope
+  - cancel
+
+# ==================================================
+# ENTITIES
+# ==================================================
+
+entities:
+  - destination
+  - origin
+  - travel_date_start
+  - travel_date_end
+  - trip_duration
+  - budget
+  - num_travelers
+  - sustainability_preference
+
+# ==================================================
+# SLOTS
+# Conditional mappings prevent the form from filling
+# the wrong slot when city names are ambiguous.
+# ==================================================
+
+slots:
+  destination:
+    type: text
+    influence_conversation: true
+    mappings:
+      # Inside form: only fill when form is asking for destination
+      - type: from_entity
+        entity: destination
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: destination
+      # Outside form: fill normally
+      - type: from_entity
+        entity: destination
+        conditions:
+          - active_loop: null
+      # Last resort: accept raw text as destination (for typos)
+      # The validate_destination method will fuzzy-correct it
+      - type: from_text
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: destination
+
+  origin:
+    type: text
+    influence_conversation: true
+    mappings:
+      # Outside form: accept origin entity normally (e.g. "from London")
+      - type: from_entity
+        entity: origin
+        conditions:
+          - active_loop: null
+      # Inside form asking for origin: accept origin entity
+      - type: from_entity
+        entity: origin
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: origin
+      # Inside form asking for origin: also accept destination entity
+      # This handles bare city names like just "London"
+      - type: from_entity
+        entity: destination
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: origin
+      # Last resort: accept raw text as origin (for unknown cities)
+      - type: from_text
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: origin
+
+  travel_date_start:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: travel_date_start
+      - type: from_text
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: travel_date_start
+
+  travel_date_end:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: travel_date_end
+
+  trip_duration:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: trip_duration
+
+  budget:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: budget
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: budget
+      - type: from_text
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: budget
+
+  num_travelers:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: num_travelers
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: num_travelers
+      - type: from_text
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: num_travelers
+
+  sustainability_preference:
+    type: categorical
+    influence_conversation: true
+    values:
+      - high
+      - medium
+      - low
+    mappings:
+      - type: from_entity
+        entity: sustainability_preference
+      - type: from_text
+        conditions:
+          - active_loop: trip_planning_form
+            requested_slot: sustainability_preference
+
+  handover_context:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  _dest_country_hint:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  _origin_country_hint:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+# ==================================================
+# FORMS
+# The trip_planning_form collects all trip details
+# step by step. It asks for each slot using the
+# utter_ask_{slot_name} responses automatically.
+# ==================================================
+
+forms:
+  trip_planning_form:
+    required_slots:
+      - destination
+      - origin
+      - travel_date_start
+      - budget
+      - num_travelers
+      - sustainability_preference
+
+# ==================================================
+# RESPONSES
+# ==================================================
+
+responses:
+
+  utter_greet:
+    - text: "Hello! I'm Sky, your eco-travel advisor. I can help you plan a sustainable trip with low carbon impact. Where would you like to go?"
+    - text: "Hey there! Welcome to Sky. I help travellers plan greener trips. Tell me, where are you thinking of travelling to?"
+    - text: "Hi! I'm Sky, here to help you travel sustainably. Would you like to start planning an eco-friendly trip?"
+
+  utter_goodbye:
+    - text: "Goodbye! Remember, every small green choice makes a difference. Have a great trip!"
+    - text: "Bye! Thanks for choosing sustainable travel. See you next time!"
+    - text: "Take care! I hope your trip is both amazing and eco-friendly."
+
+  utter_you_are_welcome:
+    - text: "You're welcome! Is there anything else I can help you with?"
+    - text: "Happy to help! Do you have any other questions about your trip?"
+
+  utter_iamabot:
+    - text: "I'm Sky, an AI-powered eco-travel advisor built with Rasa. I help travellers plan sustainable trips and calculate their carbon footprint. How can I help you today?"
+    - text: "I'm Sky, your eco-travel assistant! I'm built with Rasa to help you find greener ways to travel and understand your trip's environmental impact. What can I do for you?"
+
+  utter_help:
+    - text: "I can help you with:
+
+  **Plan a trip** - find eco-friendly routes, hotels, and activities
+  **Search transport** - compare trains, buses, and other green options
+  **Find accommodation** - discover eco-certified hotels
+  **Activities** - explore sustainable things to do
+  **Carbon footprint** - calculate and offset your travel emissions
+  **Weather** - check the weather forecast at your destination
+  **City info** - learn about your destination
+  **Currency** - convert your budget to local currency
+
+Just tell me where you'd like to go, or ask me anything about sustainable travel!"
+    - text: "Here's what I can do for you:
+
+  **Trip planning** - eco-friendly routes, hotels, and activities all in one
+  **Transport search** - compare green travel options like trains and buses
+  **Accommodation** - find eco-certified places to stay
+  **Things to do** - sustainable activities and attractions
+  **Carbon calculator** - see and offset your trip's emissions
+  **Weather & city info** - know what to expect at your destination
+  **Currency conversion** - convert your budget to local rates
+
+Where shall we start?"
+
+  utter_out_of_scope:
+    - text: "I'm sorry, that's outside my area of expertise. I'm specialised in sustainable travel planning. I can help you plan eco-friendly trips, find green transport, or calculate carbon footprints. Would you like help with any of those?"
+    - text: "That's not something I can help with, but I'd love to help you plan a sustainable trip! Where would you like to travel?"
+
+  utter_ask_destination:
+    - text: "Great, let's plan your trip! Which city or country would you like to visit?"
+    - text: "Wonderful! Where would you like to travel to?"
+
+  utter_ask_origin:
+    - text: "Where will you be travelling from?"
+    - text: "What's your starting city or location?"
+
+  # Form uses utter_ask_{slot_name}, so we need this alias
+  utter_ask_travel_date_start:
+    - text: "When are you planning to travel? Please share your travel dates."
+    - text: "What dates work for you? You can give me specific dates or a general time frame."
+
+
+  utter_ask_budget:
+    - text: "What's your approximate budget for this trip (in euros)?"
+    - text: "How much are you looking to spend on this trip?"
+
+  utter_ask_num_travelers:
+    - text: "How many people will be travelling?"
+    - text: "Is this a solo trip, or are you travelling with others? How many people in total?"
+
+  utter_ask_sustainability_preference:
+    - text: "How important is sustainability to you for this trip?
+
+  **High** - only eco-friendly options, even if more expensive
+  **Medium** - prefer green options but balance with cost
+  **Low** - prioritise price and convenience
+
+Just tell me what matters most to you."
+    - text: "One more thing — how green do you want this trip to be?
+
+  **High** - I want the most eco-friendly options available
+  **Medium** - a good balance between green and practical
+  **Low** - price and convenience come first
+
+Let me know your preference!"
+
+  utter_searching_transport:
+    - text: "Searching for eco-friendly transport options to {destination}..."
+
+  utter_no_transport_found:
+    - text: "I couldn't find transport options for that route right now. Would you like to try a different destination, or shall I connect you with a human travel advisor?"
+    - text: "Unfortunately I couldn't locate any transport results for that route at the moment. You could try a nearby city, or I can connect you with a travel advisor who may have more options."
+
+  utter_searching_accommodation:
+    - text: "Looking for eco-certified accommodation in {destination}..."
+
+  utter_no_accommodation_found:
+    - text: "I couldn't find eco-certified hotels for that location. Would you like me to search for nearby alternatives?"
+    - text: "I wasn't able to find eco-friendly accommodation there. Shall I try nearby areas, or would you like to adjust your search criteria?"
+
+  utter_searching_activities:
+    - text: "Finding sustainable activities and experiences in {destination}..."
+
+  utter_calculating_carbon:
+    - text: "Calculating the carbon footprint for your trip..."
+
+  utter_carbon_offset_info:
+    - text: "There are several ways to offset your travel emissions:
+
+  **Tree planting** - support reforestation projects
+  **Renewable energy** - fund clean energy initiatives
+  **Ocean conservation** - protect marine ecosystems
+
+Would you like me to find certified offset programmes for your trip?"
+    - text: "You can balance out your trip's carbon footprint through certified offset programmes:
+
+  **Reforestation** - plant trees to absorb CO2
+  **Clean energy** - invest in wind and solar projects
+  **Community projects** - support sustainable development in local communities
+
+Shall I suggest some trusted offset providers?"
+
+  utter_sustainability_tips:
+    - text: "Here are some tips for greener travel:
+
+  Take trains instead of planes for short distances
+  Choose eco-certified accommodation
+  Pack light to reduce fuel consumption
+  Eat local and seasonal food
+  Carry a reusable water bottle and bags
+  Walk or cycle to explore your destination
+
+Would you like more specific tips for your trip?"
+    - text: "Here are a few ways to make your trip more sustainable:
+
+  Prefer rail over air for journeys under 700 km
+  Stay at locally owned, eco-aware hotels
+  Use public transport or bike-sharing at your destination
+  Support local restaurants and markets
+  Minimise single-use plastics by bringing your own bottle and bag
+  Offset any flights through a certified programme
+
+Want me to tailor these tips to your specific destination?"
+
+  utter_checking_weather:
+    - text: "Checking the weather forecast for {destination}..."
+
+  utter_getting_city_info:
+    - text: "Looking up information about {destination}..."
+
+  utter_converting_currency:
+    - text: "Converting your budget to local currency..."
+
+  utter_handover:
+    - text: "I understand you'd like to speak with a human travel advisor. Let me transfer you now with the full context of our conversation. A sustainable travel specialist will be with you shortly."
+    - text: "No problem! I'm connecting you with a human travel advisor who can help with your specific needs. They'll have access to our conversation so you won't need to repeat anything."
+
+  utter_handover_confirm:
+    - text: "Before I transfer you, is there anything specific you'd like me to pass on to the advisor?"
+    - text: "I'll pass along everything we've discussed. Is there anything else you'd like the advisor to know?"
+
+  utter_default:
+    - text: "I'm not sure I understood that. Could you rephrase it?"
+    - text: "Sorry, I didn't quite catch that. Could you say it differently?"
+
+  utter_ask_rephrase:
+    - text: "I'm still having trouble understanding. Here are some things you can try:
+
+  Tell me a destination (e.g. 'I want to go to Paris')
+  Ask about transport (e.g. 'Show me trains to Berlin')
+  Ask about your carbon footprint
+  Type 'help' to see all options
+  Type 'human' to talk to a real person"
+    - text: "I'm having a hard time with that one. Try one of these:
+
+  Name a destination (e.g. 'I'd like to visit Rome')
+  Ask about green transport (e.g. 'Trains from London to Paris')
+  Say 'help' for everything I can do
+  Say 'human' if you'd prefer a real advisor"
+
+  utter_cancel:
+    - text: "No problem! I've cancelled the trip planning. If you'd like to start over, just say 'plan a trip' or ask me anything about sustainable travel."
+    - text: "Alright, I've stopped the trip planning. Whenever you're ready, just let me know and we can start fresh!"
+
+  utter_nothing_to_cancel:
+    - text: "There's nothing to cancel right now. Would you like to plan a trip or ask me something about sustainable travel?"
+    - text: "You don't have an active trip planning session to cancel. Would you like to start one?"
+
+  utter_still_here:
+    - text: "I'm still here! We were in the middle of planning your trip. Let me continue where we left off."
+    - text: "Hi again! Let's keep going with your trip planning."
+
+# ==================================================
+# ACTIONS
+# ==================================================
+
+actions:
+  - action_search_transport
+  - action_compare_transport
+  - action_search_accommodation
+  - action_search_activities
+  - action_calculate_carbon
+  - action_carbon_offset
+  - action_get_weather
+  - action_get_city_info
+  - action_currency_convert
+  - action_handover_to_human
+  - action_trip_summary
+  - action_two_stage_fallback
+  - action_default_fallback
+  - action_handle_out_of_scope
+  - validate_trip_planning_form
+  - action_ask_destination
+  - action_ask_origin
+  - action_restart_trip
+  - action_greet
+  - action_deactivate_loop
+
+# ==================================================
+# SESSION CONFIG
+# ==================================================
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: false

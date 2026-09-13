@@ -1,0 +1,5394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sky — Eco-Travel Advisor</title>
+
+  <!-- Socket.IO client (must match Rasa's socketio version) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+
+  <!-- Leaflet — interactive map for GPS location modal -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Sky palette — main theme */
+      --sky-900: #0c4a6e;
+      --sky-700: #0369a1;
+      --sky-600: #0284c7;
+      --sky-500: #0ea5e9;
+      --sky-400: #38bdf8;
+      --sky-300: #7dd3fc;
+      --sky-200: #bae6fd;
+      --sky-100: #e0f2fe;
+      --sky-50:  #f0f9ff;
+
+      /* Sun yellow — accent for buttons */
+      --sun-500: #f59e0b;
+      --sun-400: #fbbf24;
+      --sun-300: #fcd34d;
+      --sun-200: #fde68a;
+      --sun-100: #fef3c7;
+      --sun-600: #d97706;
+
+      /* Moon grey — subtle secondary tones */
+      --moon-600: #78716c;
+      --moon-500: #a8a29e;
+      --moon-400: #c8c2bc;
+      --moon-300: #d6d3d1;
+      --moon-200: #e7e5e4;
+      --moon-100: #f5f5f4;
+      --moon-50:  #fafaf9;
+
+      /* Eco colour-coding for transport cards */
+      --green-700: #047857;
+      --green-600: #059669;
+      --green-500: #10b981;
+      --green-100: #d1fae5;
+      --green-50:  #ecfdf5;
+
+      --amber-600: #d97706;
+      --amber-100: #fef3c7;
+      --amber-50:  #fffbeb;
+
+      --red-600:   #dc2626;
+      --red-100:   #fee2e2;
+      --red-50:    #fef2f2;
+
+      /* Neutrals */
+      --grey-900:  #111827;
+      --grey-700:  #374151;
+      --grey-500:  #6b7280;
+      --grey-300:  #d1d5db;
+      --grey-200:  #e5e7eb;
+      --grey-100:  #f3f4f6;
+      --grey-50:   #f9fafb;
+      --white:     #ffffff;
+
+      --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-display: 'Playfair Display', Georgia, serif;
+
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-full: 9999px;
+
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-body);
+      color: var(--grey-900);
+      background: var(--grey-100);
+    }
+
+    /* ===== APP LAYOUT ===== */
+    .app {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 300px;
+      background: var(--white);
+      border-right: 1px solid var(--moon-200);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    /* Sky header with CSS clouds */
+    .sidebar-header {
+      padding: 20px;
+      background: linear-gradient(180deg, #0284c7 0%, #38bdf8 60%, #7dd3fc 100%);
+      color: var(--white);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative clouds using CSS pseudo-elements */
+    .sidebar-header::before {
+      content: "";
+      position: absolute;
+      bottom: 6px;
+      left: -10px;
+      width: 70px;
+      height: 25px;
+      background: rgba(255,255,255,.25);
+      border-radius: 20px;
+      box-shadow:
+        30px -12px 0 8px rgba(255,255,255,.2),
+        60px -4px 0 4px rgba(255,255,255,.15);
+    }
+
+    .sidebar-header::after {
+      content: "";
+      position: absolute;
+      bottom: 14px;
+      right: 20px;
+      width: 55px;
+      height: 20px;
+      background: rgba(255,255,255,.2);
+      border-radius: 16px;
+      box-shadow:
+        20px -10px 0 6px rgba(255,255,255,.15);
+    }
+
+    .sidebar-header h2 {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .sidebar-header p {
+      font-size: 12px;
+      opacity: .85;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* New Trip button */
+    .btn-new-trip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 12px 16px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: var(--radius-full);
+      background: var(--sun-400);
+      color: var(--grey-900);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, box-shadow .15s;
+      font-family: var(--font-body);
+      box-shadow: 0 2px 8px rgba(251,191,36,.35);
+    }
+
+    .btn-new-trip:hover {
+      background: var(--sun-300);
+      box-shadow: 0 3px 12px rgba(251,191,36,.45);
+    }
+
+    .btn-new-trip svg {
+      flex-shrink: 0;
+    }
+
+    .sidebar-section-title {
+      padding: 16px 20px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--moon-500);
+    }
+
+    .trip-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 12px;
+    }
+
+    .trip-card {
+      background: var(--moon-50);
+      border: 1px solid var(--moon-200);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+
+    .trip-card:hover {
+      border-color: var(--sky-400);
+      background: var(--sky-50);
+    }
+
+    .trip-card.active {
+      border-color: var(--sky-500);
+      background: var(--sky-50);
+    }
+
+    .trip-card .route {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--grey-900);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .trip-card .route .arrow {
+      color: var(--sky-600);
+      font-size: 12px;
+    }
+
+    .trip-card .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--moon-600);
+    }
+
+    .trip-card .carbon-badge {
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+    }
+
+    .carbon-badge.green  { background: var(--green-100); color: var(--green-700); }
+    .carbon-badge.amber  { background: var(--amber-100); color: var(--amber-600); }
+    .carbon-badge.red    { background: var(--red-100);   color: var(--red-600);   }
+
+    /* ── Trip card layout: route + menu button side by side ── */
+    .trip-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    .trip-card .route {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ── 3-dot context menu button ── */
+    .trip-menu-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 4px;
+      font-size: 18px;
+      line-height: 1;
+      color: var(--moon-400);
+      border-radius: var(--radius-sm);
+      transition: background .15s, color .15s;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .trip-menu-btn:hover {
+      background: var(--moon-200);
+      color: var(--grey-700);
+    }
+
+    /* ── Dropdown menu ── */
+    .trip-menu-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 100;
+      background: var(--white);
+      border: 1px solid var(--moon-200);
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+      min-width: 160px;
+      padding: 4px 0;
+      margin-top: 4px;
+    }
+
+    .trip-menu-dropdown.open { display: block; }
+
+    .trip-menu-dropdown .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 14px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--grey-800);
+      text-align: left;
+      transition: background .12s;
+    }
+
+    .trip-menu-dropdown .menu-item:hover {
+      background: var(--moon-100);
+    }
+
+    .trip-menu-dropdown .menu-item.danger {
+      color: var(--red-500);
+    }
+
+    .trip-menu-dropdown .menu-item.danger:hover {
+      background: var(--red-50);
+    }
+
+    .trip-menu-dropdown .menu-icon {
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Pin badge on pinned cards ── */
+    .pin-badge {
+      font-size: 11px;
+      color: var(--sky-500);
+      margin-left: 4px;
+    }
+
+    /* ── Conversation card (no trip data yet) ── */
+    .trip-card.convo-only .route {
+      color: var(--moon-600);
+      font-weight: 500;
+      font-size: 13px;
+    }
+
+    /* ── Inline rename input ── */
+    .rename-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 199;
+    }
+
+    .rename-overlay.open { display: block; }
+
+    .rename-popover {
+      position: absolute;
+      z-index: 200;
+      background: var(--white);
+      border: 1px solid var(--moon-200);
+      border-radius: var(--radius-md);
+      box-shadow: 0 6px 24px rgba(0,0,0,.15);
+      padding: 12px;
+      width: 220px;
+    }
+
+    .rename-popover label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--moon-500);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
+    }
+
+    .rename-popover input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--moon-300);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--grey-900);
+      background: var(--moon-50);
+      outline: none;
+      transition: border-color .15s;
+      box-sizing: border-box;
+    }
+
+    .rename-popover input:focus {
+      border-color: var(--sky-400);
+      box-shadow: 0 0 0 2px rgba(56,189,248,.15);
+    }
+
+    .rename-popover-btns {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      justify-content: flex-end;
+    }
+
+    .rename-popover-btns button {
+      padding: 5px 12px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background .12s;
+    }
+
+    .rename-btn-cancel {
+      background: var(--moon-100);
+      color: var(--grey-700);
+    }
+
+    .rename-btn-cancel:hover { background: var(--moon-200); }
+
+    .rename-btn-save {
+      background: var(--sky-500);
+      color: white;
+    }
+
+    .rename-btn-save:hover { background: var(--sky-600); }
+
+    .sidebar-empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--moon-500);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .sidebar-empty svg {
+      display: block;
+      margin: 0 auto 12px;
+      opacity: .4;
+    }
+
+    /* ===== MAIN CHAT AREA ===== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* -- Top bar with sky gradient + clouds -- */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 50%, #38bdf8 100%);
+      color: var(--white);
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Decorative cloud shapes on topbar */
+    .topbar::before {
+      content: "";
+      position: absolute;
+      top: 4px;
+      right: 180px;
+      width: 80px;
+      height: 26px;
+      background: rgba(255,255,255,.12);
+      border-radius: 20px;
+      box-shadow:
+        25px -10px 0 8px rgba(255,255,255,.1),
+        55px -3px 0 5px rgba(255,255,255,.08);
+    }
+
+    .topbar::after {
+      content: "";
+      position: absolute;
+      bottom: 2px;
+      left: 40%;
+      width: 100px;
+      height: 20px;
+      background: rgba(255,255,255,.08);
+      border-radius: 16px;
+      box-shadow:
+        35px -8px 0 6px rgba(255,255,255,.06);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .topbar-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-full);
+      background: rgba(255,255,255,.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .topbar-info h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .topbar-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      opacity: .85;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ade80;
+    }
+
+    .status-dot.offline { background: var(--moon-400); }
+
+    .btn-handover {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1.5px solid rgba(255,255,255,.4);
+      border-radius: var(--radius-full);
+      background: transparent;
+      color: var(--white);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+      font-family: var(--font-body);
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-handover:hover {
+      background: rgba(255,255,255,.15);
+      border-color: rgba(255,255,255,.7);
+    }
+
+    .btn-handover svg {
+      flex-shrink: 0;
+    }
+
+    /* Handover indicator banner */
+    .handover-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      background: var(--amber-50);
+      border-bottom: 1px solid var(--amber-100);
+      font-size: 13px;
+      color: var(--amber-600);
+      font-weight: 500;
+    }
+
+    .handover-banner.visible { display: flex; }
+
+    /* -- Messages area -- */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    .msg {
+      display: flex;
+      gap: 10px;
+      max-width: 75%;
+      animation: fadeIn .25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.bot { align-self: flex-start; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Bot avatar: moon grey tint */
+    .msg.bot .msg-avatar  { background: var(--moon-100); }
+    .msg.user .msg-avatar { background: var(--sky-100);  }
+
+    .msg-bubble {
+      padding: 12px 16px;
+      border-radius: var(--radius-lg);
+      font-size: 14px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.bot .msg-bubble {
+      background: var(--white);
+      border: 1px solid var(--moon-200);
+      border-bottom-left-radius: var(--radius-sm);
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--sky-600);
+      color: var(--white);
+      border-bottom-right-radius: var(--radius-sm);
+    }
+
+    /* -- Typing indicator (moon grey) -- */
+    .typing-indicator {
+      display: none;
+      align-self: flex-start;
+      padding: 14px 18px;
+      background: var(--white);
+      border: 1px solid var(--moon-200);
+      border-radius: var(--radius-lg);
+      border-bottom-left-radius: var(--radius-sm);
+      gap: 4px;
+    }
+
+    .typing-indicator.visible { display: flex; }
+
+    .typing-indicator span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--moon-300);
+      animation: bounce .6s infinite alternate;
+    }
+
+    .typing-indicator span:nth-child(2) { animation-delay: .15s; }
+    .typing-indicator span:nth-child(3) { animation-delay: .3s; }
+
+    @keyframes bounce {
+      to { background: var(--moon-500); transform: translateY(-3px); }
+    }
+
+    /* -- Quick-reply buttons (sky-themed) -- */
+    .quick-replies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 24px 4px;
+      animation: fadeIn .3s ease-out;
+    }
+
+    .quick-reply-btn {
+      padding: 8px 16px;
+      border: 1.5px solid var(--sky-400);
+      border-radius: var(--radius-full);
+      background: var(--white);
+      color: var(--sky-700);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: var(--font-body);
+    }
+
+    .quick-reply-btn:hover {
+      background: var(--sky-50);
+      border-color: var(--sky-600);
+    }
+
+    /* -- Transport result cards -- */
+    .transport-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+      width: 100%;
+    }
+
+    .transport-card {
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      border-left: 4px solid;
+      transition: box-shadow .15s;
+    }
+
+    .transport-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .transport-card.green {
+      background: var(--green-50);
+      border-left-color: var(--green-600);
+    }
+
+    .transport-card.amber {
+      background: var(--amber-50);
+      border-left-color: var(--amber-600);
+    }
+
+    .transport-card.red {
+      background: var(--red-50);
+      border-left-color: var(--red-600);
+    }
+
+    .transport-card .rank {
+      font-size: 22px;
+      font-weight: 700;
+      width: 36px;
+      text-align: center;
+    }
+
+    .transport-card.green .rank { color: var(--green-600); }
+    .transport-card.amber .rank { color: var(--amber-600); }
+    .transport-card.red   .rank { color: var(--red-600);   }
+
+    .transport-card .card-body h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .transport-card .card-body .card-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--grey-500);
+    }
+
+    .transport-card .card-body .card-details span {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .transport-card .eco-score {
+      text-align: center;
+    }
+
+    .eco-score .score-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .transport-card.green .eco-score .score-value { color: var(--green-600); }
+    .transport-card.amber .eco-score .score-value { color: var(--amber-600); }
+    .transport-card.red   .eco-score .score-value { color: var(--red-600);   }
+
+    .eco-score .score-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--moon-500);
+    }
+
+    /* -- Hotel cards -- */
+    .hotel-cards {
+      display: flex;
+      flex-direction: row;
+      gap: 12px;
+      margin-top: 6px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      padding-bottom: 6px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hotel-cards::-webkit-scrollbar { height: 4px; }
+    .hotel-cards::-webkit-scrollbar-thumb { background: var(--moon-300); border-radius: 4px; }
+    .hotel-card {
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      border-left: 4px solid var(--green-600);
+      transition: box-shadow .15s;
+      scroll-snap-align: start;
+      min-width: 240px;
+      max-width: 280px;
+      flex-shrink: 0;
+    }
+    .hotel-card:hover { box-shadow: var(--shadow-md); }
+    .hotel-card.green { background: var(--green-50);  border-left-color: var(--green-600); }
+    .hotel-card.amber { background: var(--amber-50);  border-left-color: var(--amber-600); }
+    .hotel-card.red   { background: var(--red-50);    border-left-color: var(--red-600);   }
+    .hotel-card .card-header { display: flex; align-items: center; gap: 10px; }
+    .hotel-card .rank { font-size: 22px; font-weight: 700; min-width: 36px; }
+    .hotel-card.green .rank { color: var(--green-600); }
+    .hotel-card.amber .rank { color: var(--amber-600); }
+    .hotel-card.red   .rank { color: var(--red-600);   }
+    .hotel-card .card-body { flex: 1; }
+    .hotel-card .card-body h4 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+    .hotel-card .card-details {
+      display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--moon-600);
+    }
+    .hotel-card .card-details span { display: flex; align-items: center; gap: 4px; }
+    .hotel-card .cert-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .hotel-card .cert-tag {
+      font-size: 11px; padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--sky-100); color: var(--sky-700);
+      font-weight: 500;
+    }
+    .hotel-card .eco-features {
+      font-size: 12px; color: var(--moon-500); margin-top: 4px;
+    }
+    .hotel-card .eco-score { text-align: center; }
+    .hotel-card .eco-score .score-value { font-size: 24px; font-weight: 700; }
+    .hotel-card.green .eco-score .score-value { color: var(--green-600); }
+    .hotel-card.amber .eco-score .score-value { color: var(--amber-600); }
+    .hotel-card.red   .eco-score .score-value { color: var(--red-600);   }
+
+    /* -- Activity cards -- */
+    .activity-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .activity-card {
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: var(--sky-50);
+      border-left: 4px solid var(--sky-500);
+      transition: box-shadow .15s;
+    }
+    .activity-card:hover { box-shadow: var(--shadow-md); }
+    .activity-card .act-icon { font-size: 28px; min-width: 36px; text-align: center; }
+    .activity-card .card-body { flex: 1; }
+    .activity-card .card-body h4 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+    .activity-card .card-details {
+      display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--moon-600);
+    }
+    .activity-card .card-details span { display: flex; align-items: center; gap: 4px; }
+    .activity-card .eco-note {
+      font-size: 12px; color: var(--green-700); margin-top: 5px; font-style: italic;
+    }
+
+    /* -- Carbon footprint cards -- */
+    .carbon-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .carbon-card {
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-left: 4px solid var(--green-600);
+      transition: box-shadow .15s;
+    }
+    .carbon-card:hover { box-shadow: var(--shadow-md); }
+    .carbon-card.green { background: var(--green-50);  border-left-color: var(--green-600); }
+    .carbon-card.amber { background: var(--amber-50);  border-left-color: var(--amber-600); }
+    .carbon-card.red   { background: var(--red-50);    border-left-color: var(--red-600);   }
+    .carbon-card .mode-icon { font-size: 28px; min-width: 36px; text-align: center; }
+    .carbon-card .card-body { flex: 1; }
+    .carbon-card .card-body h4 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+    .carbon-card .card-details {
+      display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--moon-600);
+    }
+    .carbon-card .card-details span { display: flex; align-items: center; gap: 4px; }
+    .carbon-card .carbon-bar-wrap {
+      flex: 1; height: 18px; background: var(--moon-100); border-radius: 4px; overflow: hidden;
+    }
+    .carbon-card .carbon-bar {
+      height: 100%; border-radius: 4px; transition: width .5s;
+    }
+    .carbon-card.green .carbon-bar { background: var(--green-500); }
+    .carbon-card.amber .carbon-bar { background: var(--amber-500); }
+    .carbon-card.red   .carbon-bar { background: var(--red-500);   }
+
+    /* -- Input bar -- */
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 24px;
+      background: var(--white);
+      border-top: 1px solid var(--moon-200);
+      flex-shrink: 0;
+    }
+
+    .input-bar input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1.5px solid var(--moon-300);
+      border-radius: var(--radius-full);
+      font-size: 14px;
+      font-family: var(--font-body);
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .input-bar input:focus {
+      border-color: var(--sky-500);
+    }
+
+    .input-bar input::placeholder {
+      color: var(--moon-500);
+    }
+
+
+    /* -- Card action buttons (View on Map, etc.) -- */
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .card-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid var(--green-300);
+      background: var(--green-50);
+      color: var(--green-700);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, border-color .15s;
+    }
+    .card-action-btn:hover {
+      background: var(--green-100);
+      border-color: var(--green-500);
+    }
+
+
+    /* ===== DATE PICKER BUTTON ===== */
+    .btn-date {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 10px;
+      background: var(--sky-50);
+      color: var(--sky-600);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: background .15s, color .15s;
+      flex-shrink: 0;
+    }
+    .btn-date:hover {
+      background: var(--sky-100);
+      color: var(--sky-700);
+    }
+    .btn-date.spotlight {
+      z-index: 1002;
+      position: relative;
+      animation: gps-pulse 1s ease-in-out infinite;
+    }
+
+    /* ===== DATE PICKER MODAL ===== */
+    .date-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .date-modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .date-modal {
+      background: var(--white);
+      border-radius: 16px;
+      width: 380px;
+      max-width: 92vw;
+      max-height: 88vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(16px) scale(.97);
+      transition: transform .25s;
+    }
+    .date-modal-overlay.open .date-modal {
+      transform: translateY(0) scale(1);
+    }
+    .date-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--moon-200);
+    }
+    .date-modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--grey-900);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .date-modal-close {
+      width: 32px; height: 32px;
+      border: none; border-radius: 8px;
+      background: transparent; color: var(--moon-600);
+      cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 20px; transition: background .15s;
+    }
+    .date-modal-close:hover { background: var(--moon-100); }
+
+    /* Mode toggle (single / range) */
+    .date-mode-toggle {
+      display: flex;
+      gap: 4px;
+      padding: 12px 20px 0;
+    }
+    .date-mode-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1.5px solid var(--moon-200);
+      border-radius: 8px;
+      background: var(--white);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--moon-600);
+      transition: all .15s;
+      text-align: center;
+    }
+    .date-mode-btn.active {
+      border-color: var(--sky-400);
+      background: var(--sky-50);
+      color: var(--sky-700);
+    }
+
+    /* Calendar grid */
+    .date-calendar {
+      padding: 12px 20px;
+    }
+    .date-cal-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .date-cal-nav button {
+      width: 32px; height: 32px;
+      border: none; border-radius: 8px;
+      background: var(--moon-100);
+      cursor: pointer; font-size: 16px;
+      color: var(--moon-700);
+      display: flex; align-items: center;
+      justify-content: center;
+      transition: background .15s;
+    }
+    .date-cal-nav button:hover { background: var(--moon-200); }
+    .date-cal-title {
+      font-size: 15px; font-weight: 600;
+      color: var(--grey-900);
+    }
+    .date-cal-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--moon-500);
+      margin-bottom: 4px;
+    }
+    .date-cal-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .date-cal-day {
+      width: 100%; aspect-ratio: 1;
+      border: none; border-radius: 8px;
+      background: transparent;
+      cursor: pointer; font-size: 13px;
+      color: var(--grey-900);
+      display: flex; align-items: center;
+      justify-content: center;
+      transition: all .12s;
+    }
+    .date-cal-day:hover:not(.disabled):not(.empty) {
+      background: var(--sky-50);
+    }
+    .date-cal-day.today {
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1.5px var(--sky-300);
+    }
+    .date-cal-day.selected {
+      background: var(--sky-500);
+      color: #fff;
+      font-weight: 600;
+    }
+    .date-cal-day.in-range {
+      background: var(--sky-100);
+      border-radius: 0;
+    }
+    .date-cal-day.range-start {
+      background: var(--sky-500);
+      color: #fff; font-weight: 600;
+      border-radius: 8px 0 0 8px;
+    }
+    .date-cal-day.range-end {
+      background: var(--sky-500);
+      color: #fff; font-weight: 600;
+      border-radius: 0 8px 8px 0;
+    }
+    .date-cal-day.disabled {
+      color: var(--moon-300);
+      cursor: default;
+    }
+    .date-cal-day.empty {
+      cursor: default;
+    }
+
+    /* Selection summary + confirm */
+    .date-selection {
+      padding: 12px 20px 16px;
+      border-top: 1px solid var(--moon-100);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .date-selection-text {
+      flex: 1;
+      font-size: 14px;
+      color: var(--moon-600);
+    }
+    .date-selection-text strong {
+      color: var(--grey-900);
+    }
+    .date-confirm-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background: var(--sky-500);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .date-confirm-btn:hover { background: var(--sky-600); }
+    .date-confirm-btn:disabled {
+      background: var(--moon-200);
+      color: var(--moon-400);
+      cursor: default;
+    }
+
+    /* Date spotlight tip */
+    .date-spotlight-tip {
+      position: fixed;
+      z-index: 1003;
+      background: var(--sky-600);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .25s;
+      white-space: nowrap;
+    }
+    .date-spotlight-tip.active { opacity: 1; }
+    .date-spotlight-tip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--sky-600);
+    }
+
+
+    /* ===== SKY INFO MODAL ===== */
+    .sky-info-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .sky-info-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .sky-info-modal {
+      background: var(--white);
+      border-radius: 16px;
+      width: 520px;
+      max-width: 92vw;
+      max-height: 85vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(16px) scale(.97);
+      transition: transform .25s;
+    }
+    .sky-info-overlay.open .sky-info-modal {
+      transform: translateY(0) scale(1);
+    }
+    .sky-info-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--moon-200);
+      background: linear-gradient(135deg, var(--sky-50), var(--green-50));
+    }
+    .sky-info-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--grey-900);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sky-info-close {
+      width: 32px; height: 32px;
+      border: none; border-radius: 8px;
+      background: transparent; color: var(--moon-600);
+      cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 20px; transition: background .15s;
+    }
+    .sky-info-close:hover { background: rgba(0,0,0,.06); }
+    .sky-info-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .sky-info-step {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+    }
+    .sky-info-step:last-child { margin-bottom: 0; }
+    .sky-step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--sky-100);
+      color: var(--sky-700);
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sky-step-content h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--grey-900);
+      margin-bottom: 4px;
+    }
+    .sky-step-content p {
+      font-size: 13px;
+      color: var(--moon-600);
+      line-height: 1.5;
+      margin: 0;
+    }
+    .sky-info-features {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--moon-100);
+    }
+    .sky-info-features h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--grey-900);
+      margin-bottom: 12px;
+    }
+    .sky-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 480px) {
+      .sky-feature-grid { grid-template-columns: 1fr; }
+    }
+    .sky-feature {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--moon-50);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--grey-900);
+    }
+    .sky-feature-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .sky-info-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--moon-100);
+      text-align: center;
+    }
+    .sky-info-start-btn {
+      padding: 12px 32px;
+      border: none;
+      border-radius: 10px;
+      background: var(--green-500);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .sky-info-start-btn:hover { background: var(--green-600); }
+
+
+    /* ===== WELCOME ACTION BAR ===== */
+    /* Persistent welcome buttons that stay visible until the user
+       starts a trip or sends a few messages. More prominent than
+       quick-reply buttons — acts as onboarding CTA. */
+    .welcome-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .welcome-bar[hidden] { display: none !important; }
+    .welcome-btn {
+      padding: 10px 20px;
+      border: 1.5px solid var(--green-300);
+      border-radius: 12px;
+      background: var(--green-50);
+      color: var(--green-700);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .welcome-btn:hover {
+      background: var(--green-100);
+      border-color: var(--green-500);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    .welcome-btn.info-btn {
+      border-color: var(--sky-300);
+      background: var(--sky-50);
+      color: var(--sky-700);
+    }
+    .welcome-btn.info-btn:hover {
+      background: var(--sky-100);
+      border-color: var(--sky-500);
+    }
+
+    /* Send button — sun yellow */
+    .btn-send {
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: var(--radius-full);
+      background: var(--sun-400);
+      color: var(--grey-900);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s, box-shadow .15s;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(251,191,36,.3);
+    }
+
+    .btn-send:hover {
+      background: var(--sun-300);
+      box-shadow: 0 3px 12px rgba(251,191,36,.45);
+    }
+
+    .btn-send:disabled {
+      background: var(--moon-300);
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* GPS location-detect button */
+    .btn-gps {
+      width: 42px;
+      height: 42px;
+      border: 1.5px solid var(--moon-300);
+      border-radius: var(--radius-full);
+      background: var(--white);
+      color: var(--sky-600);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color .15s, background .15s;
+      flex-shrink: 0;
+    }
+    .btn-gps:hover {
+      border-color: var(--sky-500);
+      background: var(--sky-50);
+    }
+    .btn-gps.detecting {
+      animation: gps-pulse 1s ease-in-out infinite;
+      border-color: var(--sky-400);
+      color: var(--sky-400);
+      cursor: wait;
+    }
+    @keyframes gps-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    .btn-gps:disabled {
+      color: var(--moon-400);
+      border-color: var(--moon-200);
+      cursor: not-allowed;
+    }
+
+    /* GPS toast notification */
+    .gps-toast {
+      position: absolute;
+      bottom: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--sky-700);
+      color: #fff;
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      z-index: 10;
+      white-space: nowrap;
+    }
+    .gps-toast.visible { opacity: 1; }
+
+    /* ===== GPS SPOTLIGHT EFFECT ===== */
+    /* Shown when bot asks for origin — highlights GPS button.
+       Only dims non-essential areas; the last bot message and
+       the input bar stay fully visible so the user sees the
+       question and the GPS button together. */
+    .gps-spotlight-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .30);
+      z-index: 900;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s;
+    }
+    .gps-spotlight-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Keep input bar and last bot message above the overlay */
+    .input-bar.spotlight-visible {
+      position: relative;
+      z-index: 901;
+      background: var(--white);
+      border-radius: 16px;
+      margin: 0 8px 8px;
+      padding: 12px 16px;
+      box-shadow: 0 0 0 2px rgba(14, 165, 233, .25),
+                  0 4px 20px rgba(14, 165, 233, .12);
+      transition: box-shadow .35s, border-radius .35s;
+    }
+    .msg.bot.spotlight-origin {
+      position: relative;
+      z-index: 901;
+      background: var(--sky-50);
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin-left: 4px;
+      margin-right: 4px;
+      box-shadow: 0 0 0 2px rgba(14, 165, 233, .2),
+                  0 2px 12px rgba(14, 165, 233, .08);
+      transition: box-shadow .35s;
+    }
+
+    .btn-gps.spotlight {
+      position: relative;
+      z-index: 902;
+      animation: spotlight-bounce 1.2s ease-in-out infinite;
+      box-shadow: 0 0 0 4px rgba(14, 165, 233, .35), 0 0 20px rgba(14, 165, 233, .2);
+      border-color: var(--sky-500);
+      background: var(--white);
+    }
+    @keyframes spotlight-bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+
+    /* Tooltip arrow pointing to GPS button */
+    .gps-spotlight-tip {
+      position: fixed;
+      z-index: 903;
+      background: var(--sky-700);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s;
+      white-space: nowrap;
+    }
+    .gps-spotlight-tip.active { opacity: 1; }
+    .gps-spotlight-tip::after {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 7px solid var(--sky-700);
+    }
+
+    /* ===== GPS LOCATION MODAL ===== */
+    .gps-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .gps-modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .gps-modal {
+      background: var(--white);
+      border-radius: 16px;
+      width: 460px;
+      max-width: 92vw;
+      max-height: 88vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(16px) scale(.97);
+      transition: transform .25s;
+    }
+    .gps-modal-overlay.open .gps-modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .gps-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--moon-200);
+    }
+    .gps-modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--grey-900);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gps-modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--moon-600);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: background .15s;
+    }
+    .gps-modal-close:hover {
+      background: var(--moon-100);
+    }
+
+    /* Map container */
+    #gpsMap {
+      width: 100%;
+      height: 240px;
+      background: var(--moon-100);
+    }
+
+    /* Location info area */
+    .gps-modal-info {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--moon-100);
+    }
+    .gps-location-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--moon-600);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 4px;
+    }
+    .gps-location-value {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--grey-900);
+      line-height: 1.4;
+    }
+    .gps-coords {
+      font-size: 12px;
+      color: var(--moon-500);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 4px;
+    }
+
+    /* Detail level buttons */
+    .gps-modal-options {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .gps-modal-options-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--moon-600);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 2px;
+    }
+    .gps-option-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--moon-200);
+      border-radius: 10px;
+      background: var(--white);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .15s, background .15s;
+    }
+    .gps-option-btn:hover {
+      border-color: var(--sky-400);
+      background: var(--sky-50);
+    }
+    .gps-option-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .gps-option-btn:nth-child(2) .gps-option-icon { background: #ecfdf5; }
+    .gps-option-btn:nth-child(3) .gps-option-icon { background: #eff6ff; }
+    .gps-option-btn:nth-child(4) .gps-option-icon { background: #faf5ff; }
+    .gps-option-text {
+      flex: 1;
+      min-width: 0;
+    }
+    .gps-option-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--grey-900);
+    }
+    .gps-option-preview {
+      font-size: 12px;
+      color: var(--moon-500);
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .msg { max-width: 90%; }
+      .topbar { padding: 10px 16px; }
+      .messages { padding: 16px; }
+      .input-bar { padding: 12px 16px; }
+    }
+
+    /* ===== SCROLLBAR ===== */
+    .messages::-webkit-scrollbar,
+    .trip-list::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .messages::-webkit-scrollbar-thumb,
+    .trip-list::-webkit-scrollbar-thumb {
+      background: var(--moon-300);
+      border-radius: 4px;
+    }
+
+    /* ===== SCREEN READER ONLY ===== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+
+
+    /* -- Human handover modal -- */
+    .handover-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 998;
+    }
+    .handover-modal-overlay.open { display: flex; align-items: center; justify-content: center; }
+    .handover-modal {
+      background: var(--white);
+      border-radius: 18px;
+      padding: 36px 32px;
+      max-width: 420px;
+      width: 90vw;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      animation: handoverSlideUp .35s ease-out;
+    }
+    @keyframes handoverSlideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .handover-modal .modal-icon {
+      width: 64px; height: 64px;
+      margin: 0 auto 16px;
+      background: var(--sky-100);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .handover-modal h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--moon-800);
+      margin: 0 0 8px;
+    }
+    .handover-modal p {
+      font-size: 14px;
+      color: var(--moon-500);
+      line-height: 1.6;
+      margin: 0 0 20px;
+    }
+    .handover-modal .loader {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+    .handover-modal .loader span {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--sky-400);
+      animation: handoverPulse 1.2s ease-in-out infinite;
+    }
+    .handover-modal .loader span:nth-child(2) { animation-delay: .2s; }
+    .handover-modal .loader span:nth-child(3) { animation-delay: .4s; }
+    @keyframes handoverPulse {
+      0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    .handover-modal .btn-back {
+      background: var(--moon-100);
+      color: var(--moon-600);
+      border: none;
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .handover-modal .btn-back:hover { background: var(--moon-200); }
+    /* -- High-emission alert badge -- */
+    .emission-alert {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--red-100);
+      color: var(--red-600);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-top: 4px;
+    }
+    /* -- Privacy info button + modal popup -- */
+    .privacy-info-btn {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--moon-300);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color .25s, background .25s, transform .15s;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .privacy-info-btn:hover {
+      color: var(--sky-500);
+      background: var(--sky-50);
+      transform: scale(1.1);
+    }
+    .privacy-popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.25);
+      z-index: 999;
+    }
+    .privacy-popup-overlay.open { display: block; }
+    .privacy-popup {
+      display: none;
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 340px;
+      max-width: 90vw;
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.18);
+      padding: 20px 22px;
+      z-index: 1000;
+      font-size: 13px;
+      color: var(--moon-600);
+      line-height: 1.6;
+    }
+    .privacy-popup.open { display: block; }
+    .privacy-popup h4 {
+      font-size: 14px; font-weight: 600;
+      color: var(--moon-800); margin: 0 0 10px;
+    }
+    .privacy-popup ul { margin: 0; padding: 0 0 0 18px; }
+    .privacy-popup li { margin-bottom: 6px; }
+    .privacy-popup .legal {
+      margin-top: 12px; padding-top: 10px;
+      border-top: 1px solid var(--moon-100);
+      font-size: 11px; color: var(--moon-400);
+    }
+    .privacy-popup-close {
+      position: absolute; top: 10px; right: 12px;
+      background: none; border: none;
+      font-size: 18px; color: var(--moon-400);
+      cursor: pointer; line-height: 1;
+    }
+    .privacy-popup-close:hover { color: var(--moon-600); }
+
+    /* -- Sustainability metric tooltips -- */
+    .eco-tip {
+      position: relative;
+      cursor: help;
+    }
+    .eco-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--moon-800);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.45;
+      padding: 8px 12px;
+      border-radius: 8px;
+      white-space: normal;
+      width: max-content;
+      max-width: 260px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .2s, visibility .2s;
+      pointer-events: none;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+      text-align: center;
+    }
+    .eco-tip::before {
+      content: "";
+      position: absolute;
+      bottom: calc(100% + 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--moon-800);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .2s, visibility .2s;
+      pointer-events: none;
+      z-index: 50;
+    }
+    .eco-tip:hover::after,
+    .eco-tip:hover::before,
+    .eco-tip:focus::after,
+    .eco-tip:focus::before {
+      opacity: 1;
+      visibility: visible;
+    }
+    .eco-tip.tip-bottom::after {
+      bottom: auto;
+      top: calc(100% + 8px);
+    }
+    .eco-tip.tip-bottom::before {
+      bottom: auto;
+      top: calc(100% + 2px);
+      border-top-color: transparent;
+      border-bottom-color: var(--moon-800);
+    }
+
+
+    /* -- Weather card -- */
+    .weather-card {
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      background: linear-gradient(135deg, var(--sky-50), var(--green-50));
+      border-left: 4px solid var(--sky-500);
+      margin-top: 6px;
+    }
+    .weather-card .weather-current {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .weather-card .weather-icon {
+      font-size: 48px;
+      line-height: 1;
+    }
+    .weather-card .weather-main {
+      flex: 1;
+    }
+    .weather-card .weather-temp {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--sky-700);
+      line-height: 1.1;
+    }
+    .weather-card .weather-condition {
+      font-size: 14px;
+      color: var(--moon-600);
+      margin-top: 2px;
+    }
+    .weather-card .weather-details {
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--moon-500);
+      margin-top: 4px;
+    }
+    .weather-card .weather-forecast {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .weather-card .forecast-day {
+      min-width: 90px;
+      text-align: center;
+      padding: 8px 10px;
+      background: var(--white);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--moon-200);
+      font-size: 12px;
+    }
+    .weather-card .forecast-day .day-label {
+      font-weight: 600;
+      color: var(--moon-700);
+      margin-bottom: 4px;
+    }
+    .weather-card .forecast-day .day-temps {
+      color: var(--sky-600);
+      font-weight: 500;
+    }
+    .weather-card .forecast-day .day-rain {
+      color: var(--moon-400);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .weather-card .travel-advice {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: var(--green-50);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--green-700);
+    }
+
+    /* -- City info card -- */
+    .city-info-card {
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      background: var(--sky-50);
+      border-left: 4px solid var(--sky-500);
+      margin-top: 6px;
+    }
+    .city-info-card .city-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--moon-800);
+      margin: 0 0 4px;
+    }
+    .city-info-card .city-subtitle {
+      font-size: 12px;
+      color: var(--moon-400);
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+    .city-info-card .city-summary {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--moon-700);
+    }
+    .city-info-card .wiki-link {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--sky-600);
+      text-decoration: none;
+    }
+    .city-info-card .wiki-link:hover {
+      text-decoration: underline;
+    }
+
+    /* -- Currency card -- */
+    .currency-card {
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      background: var(--green-50);
+      border-left: 4px solid var(--green-600);
+      margin-top: 6px;
+    }
+    .currency-card .currency-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .currency-card .currency-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--white);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--moon-200);
+    }
+    .currency-card .currency-from {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--moon-600);
+    }
+    .currency-card .currency-arrow {
+      font-size: 18px;
+      color: var(--moon-400);
+    }
+    .currency-card .currency-to {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--green-700);
+    }
+    .currency-card .currency-rate {
+      font-size: 11px;
+      color: var(--moon-400);
+      margin-top: 2px;
+      text-align: right;
+    }
+    .currency-card .currency-date {
+      font-size: 12px;
+      color: var(--moon-400);
+      margin-top: 8px;
+      text-align: right;
+    }
+
+    /* -- Hotel source badge -- */
+    .hotel-card .hotel-source {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--moon-100);
+      color: var(--moon-500);
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    /* -- Activity description & wiki link -- */
+    .activity-card .act-description {
+      font-size: 13px;
+      color: var(--moon-600);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+    .activity-card .act-wiki-link {
+      font-size: 12px;
+      color: var(--sky-600);
+      text-decoration: none;
+      margin-top: 3px;
+      display: inline-block;
+    }
+    .activity-card .act-wiki-link:hover {
+      text-decoration: underline;
+    }
+
+    /* -- Transport verdict badge (activities) -- */
+    .transport-verdict {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+    .transport-verdict.excellent {
+      background: var(--green-100);
+      color: var(--green-700);
+    }
+    .transport-verdict.reasonable {
+      background: var(--amber-100);
+      color: var(--amber-700);
+    }
+    .transport-verdict.limited {
+      background: var(--red-100);
+      color: var(--red-700);
+    }
+
+    /* ===== INTRO TOUR ===== */
+
+    /* Tutorial button in topbar */
+    .btn-tutorial {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1.5px solid rgba(255,255,255,.4);
+      border-radius: var(--radius-full);
+      background: rgba(255,255,255,.12);
+      color: var(--white);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, box-shadow .15s;
+      font-family: var(--font-body);
+      position: relative;
+      z-index: 1;
+    }
+    .btn-tutorial:hover {
+      background: rgba(255,255,255,.22);
+      border-color: rgba(255,255,255,.7);
+      box-shadow: 0 0 12px rgba(255,255,255,.15);
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Send button glow effect for tutorial */
+    .btn-send.tutorial-glow {
+      background: var(--green-600);
+      color: var(--white);
+      animation: send-glow 1.4s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(16,185,129,.5);
+    }
+    @keyframes send-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(16,185,129,.4); transform: scale(1); }
+      50% { box-shadow: 0 0 20px rgba(16,185,129,.7), 0 0 40px rgba(16,185,129,.3); transform: scale(1.12); }
+    }
+
+    /* Pre-filled input highlight */
+    #userInput.tutorial-prefilled {
+      background: #ecfdf5;
+      border-color: var(--green-500);
+      color: var(--grey-900);
+    }
+
+    /* Typewriter cursor */
+    .typewriter-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: var(--sky-600);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: tw-blink .6s step-end infinite;
+    }
+    @keyframes tw-blink {
+      50% { opacity: 0; }
+    }
+
+    /* Tutorial badge on sidebar card */
+    .tutorial-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--sky-600);
+      background: var(--sky-100);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      margin-left: 6px;
+    }
+
+    /* Destination picker modal */
+    .dest-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .dest-modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .dest-modal {
+      background: var(--white);
+      border-radius: 16px;
+      width: 640px;
+      max-width: 94vw;
+      max-height: 88vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(16px) scale(.97);
+      transition: transform .25s;
+    }
+    .dest-modal-overlay.open .dest-modal {
+      transform: translateY(0) scale(1);
+    }
+    .dest-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--moon-200);
+    }
+    .dest-modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--grey-900);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dest-modal-close {
+      width: 32px; height: 32px;
+      border: none; border-radius: 8px;
+      background: transparent; color: var(--moon-600);
+      cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 20px; transition: background .15s;
+    }
+    .dest-modal-close:hover { background: var(--moon-100); }
+    .dest-map-container {
+      height: 300px;
+      position: relative;
+    }
+    .dest-cities-grid {
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      overflow-y: auto;
+      max-height: 220px;
+    }
+    .dest-city-btn {
+      padding: 10px 12px;
+      border: 1.5px solid var(--moon-200);
+      border-radius: var(--radius-md);
+      background: var(--white);
+      cursor: pointer;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--grey-900);
+      transition: border-color .15s, background .15s, transform .1s;
+      font-family: var(--font-body);
+    }
+    .dest-city-btn:hover {
+      border-color: var(--sky-400);
+      background: var(--sky-50);
+      transform: translateY(-2px);
+    }
+    .dest-city-btn .dest-flag { font-size: 20px; display: block; margin-bottom: 4px; }
+
+    /* Budget modal */
+    .budget-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    .budget-modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .budget-modal {
+      background: var(--white); border-radius: 16px;
+      width: 400px; max-width: 92vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      display: flex; flex-direction: column; overflow: hidden;
+      transform: translateY(16px) scale(.97); transition: transform .25s;
+    }
+    .budget-modal-overlay.open .budget-modal { transform: translateY(0) scale(1); }
+    .budget-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--moon-200);
+    }
+    .budget-modal-header h3 {
+      font-size: 16px; font-weight: 600; color: var(--grey-900);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .budget-modal-close {
+      width: 32px; height: 32px; border: none; border-radius: 8px;
+      background: transparent; color: var(--moon-600); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: background .15s;
+    }
+    .budget-modal-close:hover { background: var(--moon-100); }
+    .budget-modal-body {
+      padding: 24px 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+    }
+    .budget-input-wrap {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 28px; font-weight: 600; color: var(--grey-900);
+    }
+    .budget-input-wrap span { color: var(--green-600); }
+    .budget-input {
+      width: 140px; font-size: 28px; font-weight: 600;
+      border: 2px solid var(--moon-200); border-radius: var(--radius-md);
+      padding: 8px 12px; text-align: center;
+      font-family: var(--font-body); color: var(--grey-900);
+      transition: border-color .15s;
+    }
+    .budget-input:focus { outline: none; border-color: var(--sky-400); }
+    .budget-presets {
+      display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    }
+    .budget-preset-btn {
+      padding: 6px 14px; border: 1.5px solid var(--moon-200);
+      border-radius: var(--radius-full); background: var(--white);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      font-family: var(--font-body); color: var(--grey-700);
+      transition: border-color .15s, background .15s;
+    }
+    .budget-preset-btn:hover { border-color: var(--sky-400); background: var(--sky-50); }
+    .budget-confirm-btn {
+      padding: 10px 32px; border: none; border-radius: var(--radius-full);
+      background: var(--green-600); color: var(--white);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: var(--font-body);
+      transition: background .15s, box-shadow .15s;
+    }
+    .budget-confirm-btn:hover { background: var(--green-700); box-shadow: 0 4px 12px rgba(5,150,105,.3); }
+
+    /* People count modal */
+    .people-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    .people-modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .people-modal {
+      background: var(--white); border-radius: 16px;
+      width: 380px; max-width: 92vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      display: flex; flex-direction: column; overflow: hidden;
+      transform: translateY(16px) scale(.97); transition: transform .25s;
+    }
+    .people-modal-overlay.open .people-modal { transform: translateY(0) scale(1); }
+    .people-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--moon-200);
+    }
+    .people-modal-header h3 {
+      font-size: 16px; font-weight: 600; color: var(--grey-900);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .people-modal-close {
+      width: 32px; height: 32px; border: none; border-radius: 8px;
+      background: transparent; color: var(--moon-600); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: background .15s;
+    }
+    .people-modal-close:hover { background: var(--moon-100); }
+    .people-modal-body {
+      padding: 24px 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+    }
+    .people-counter {
+      display: flex; align-items: center; gap: 20px;
+    }
+    .people-counter-btn {
+      width: 44px; height: 44px; border: 2px solid var(--moon-200);
+      border-radius: 50%; background: var(--white);
+      font-size: 22px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--grey-700); transition: border-color .15s, background .15s;
+      font-family: var(--font-body);
+    }
+    .people-counter-btn:hover { border-color: var(--sky-400); background: var(--sky-50); }
+    .people-counter-btn:disabled { opacity: .3; cursor: not-allowed; }
+    .people-count-display {
+      font-size: 36px; font-weight: 700; color: var(--grey-900);
+      min-width: 50px; text-align: center;
+    }
+    .people-count-label {
+      font-size: 13px; color: var(--moon-600); text-align: center;
+    }
+    .people-confirm-btn {
+      padding: 10px 32px; border: none; border-radius: var(--radius-full);
+      background: var(--green-600); color: var(--white);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: var(--font-body);
+      transition: background .15s, box-shadow .15s;
+    }
+    .people-confirm-btn:hover { background: var(--green-700); box-shadow: 0 4px 12px rgba(5,150,105,.3); }
+
+    /* Tutorial final buttons */
+    .tutorial-final-btns {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 8px 0;
+    }
+    .tutorial-final-btn {
+      padding: 10px 18px;
+      border: 2px solid var(--green-500);
+      border-radius: var(--radius-full);
+      background: var(--white);
+      color: var(--green-700);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: background .15s, transform .1s;
+    }
+    .tutorial-final-btn:hover {
+      background: var(--green-50);
+      transform: translateY(-1px);
+    }
+    .tutorial-final-btn.primary {
+      background: var(--green-600);
+      color: var(--white);
+      border-color: var(--green-600);
+    }
+    .tutorial-final-btn.primary:hover {
+      background: var(--green-700);
+      border-color: var(--green-700);
+    }
+
+    /* ── Tutorial blur overlay ── */
+    .tutorial-blur-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1001;
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s;
+    }
+    .tutorial-blur-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* Send button and input bar float above the blur */
+    .btn-send.tutorial-glow {
+      z-index: 1003;
+      position: relative;
+    }
+    .input-bar.tutorial-forced {
+      z-index: 1002;
+      position: relative;
+    }
+    #userInput.tutorial-prefilled {
+      pointer-events: none;
+    }
+    /* GPS / Date btn-inert (disabled until relevant question) */
+    .btn-gps.btn-inert,
+    .btn-date.btn-inert {
+      opacity: .4;
+      pointer-events: none;
+      cursor: default;
+    }
+    /* GPS / Date btn-ready (active with glow when relevant question) */
+    .btn-gps.btn-ready,
+    .btn-date.btn-ready {
+      border: 2px solid var(--green-500);
+      background: rgba(34,197,94,.12);
+      animation: btn-ready-pulse 1.8s infinite;
+    }
+    @keyframes btn-ready-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,.35); }
+      50%      { box-shadow: 0 0 12px 4px rgba(34,197,94,.25); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app" role="application" aria-label="Sky Eco-Travel Advisor chatbot">
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar" role="complementary" aria-label="Trip history sidebar">
+      <div class="sidebar-header">
+        <h2>Sky</h2>
+        <p>Eco-Travel Advisor</p>
+      </div>
+
+      <!-- New Trip button (sun yellow) -->
+      <button class="btn-new-trip" id="btnNewTrip" title="Start a new trip conversation" aria-label="Start a new trip conversation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Trip
+      </button>
+
+      <div class="sidebar-section-title">Your Trips</div>
+
+      <div class="trip-list" id="tripList" role="list" aria-label="Previous trips">
+        <div class="sidebar-empty" id="noTrips">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <circle cx="9" cy="9" r="1" fill="currentColor"/>
+            <circle cx="15" cy="9" r="1" fill="currentColor"/>
+          </svg>
+          No trips yet. Start chatting with Sky to plan your first eco-friendly trip!
+        </div>
+      </div>
+
+      <!-- Rename popover (positioned dynamically via JS) -->
+      <div class="rename-overlay" id="renameOverlay"></div>
+      <div class="rename-popover" id="renamePopover" hidden>
+        <label>Rename conversation</label>
+        <input type="text" id="renameInput" placeholder="Enter a name…" maxlength="50" autocomplete="off">
+        <div class="rename-popover-btns">
+          <button class="rename-btn-cancel" id="renameBtnCancel">Cancel</button>
+          <button class="rename-btn-save" id="renameBtnSave">Save</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main" role="main" aria-label="Chat conversation">
+      <!-- Top bar with sky gradient -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="topbar-avatar">🌍</div>
+          <div class="topbar-info">
+            <h1>Sky — Eco-Travel Advisor</h1>
+            <div class="topbar-status">
+              <div class="status-dot" id="statusDot" role="status" aria-live="polite"></div>
+              <span id="statusText" role="status" aria-live="polite">Connecting...</span>
+            </div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-tutorial" id="btnTutorial" title="Learn how Sky works with an interactive tour" aria-label="Start intro tour">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Intro Tour
+          </button>
+          <button class="btn-handover" id="btnHandover" title="Talk to a human advisor" aria-label="Talk to a human travel advisor">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Talk to a human
+          </button>
+        </div>
+      </div>
+
+      <!-- Handover banner (shown when handover is triggered) -->
+      <div class="handover-banner" id="handoverBanner" role="alert" aria-live="assertive" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        Connecting you to a human travel advisor... Please wait.
+      </div>
+
+      <!-- Messages -->
+      <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
+        <!-- Messages are injected here by JS -->
+      </div>
+
+
+      <!-- Welcome action bar — persistent until user starts a trip -->
+      <div class="welcome-bar" id="welcomeBar" hidden>
+        <button class="welcome-btn" id="welcomeBtnPlan">🌍 Plan a Trip</button>
+        <button class="welcome-btn info-btn" id="welcomeBtnInfo">ℹ️ How does Sky work?</button>
+      </div>
+
+      <!-- Quick-reply buttons container -->
+      <div class="quick-replies" id="quickReplies" role="group" aria-label="Quick reply options"></div>
+
+      <!-- Typing indicator -->
+      <div class="typing-indicator" id="typingIndicator" role="status" aria-live="polite" aria-label="Sky is typing">
+        <span></span><span></span><span></span>
+      </div>
+
+      <!-- Input -->
+      <div class="input-bar">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Type here, or tap an option above..."
+          autocomplete="off"
+          aria-label="Type your message to Sky"
+          role="textbox"
+        />
+        <button class="privacy-info-btn" id="privacyInfoBtn" title="Privacy information" aria-label="View privacy and data information">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </button>
+        <button class="btn-date btn-inert" id="btnDate" title="Pick travel date" aria-label="Open date picker" hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </button>
+        <button class="btn-gps btn-inert" id="btnGps" title="Detect my location" aria-label="Detect my location using GPS">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+          </svg>
+        </button>
+        <button class="btn-send" id="btnSend" title="Send" aria-label="Send message">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- GPS location toast -->
+      <div class="gps-toast" id="gpsToast" role="status" aria-live="polite"></div>
+    <!-- Tutorial blur overlay -->
+    <div class="tutorial-blur-overlay" id="tutorialBlurOverlay"></div>
+
+    <!-- ===== TUTORIAL: Destination picker modal ===== -->
+    <div class="dest-modal-overlay" id="destModalOverlay">
+      <div class="dest-modal">
+        <div class="dest-modal-header">
+          <h3>🗺️ Choose a Destination</h3>
+          <button class="dest-modal-close" id="destModalClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="dest-map-container" id="destMapContainer"></div>
+        <div style="padding:10px 20px 0;font-size:12px;color:var(--moon-500);">Click a marker on the map or pick a city below</div>
+        <div class="dest-cities-grid" id="destCitiesGrid"></div>
+      </div>
+    </div>
+
+    <!-- ===== TUTORIAL: Budget modal ===== -->
+    <div class="budget-modal-overlay" id="budgetModalOverlay">
+      <div class="budget-modal">
+        <div class="budget-modal-header">
+          <h3>💰 Set Your Budget</h3>
+          <button class="budget-modal-close" id="budgetModalClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="budget-modal-body">
+          <p style="font-size:13px;color:var(--moon-600);text-align:center;">How much would you like to spend on this trip?</p>
+          <div class="budget-input-wrap">
+            <span>&euro;</span>
+            <input type="number" class="budget-input" id="budgetInput" placeholder="500" min="50" max="50000" />
+          </div>
+          <div class="budget-presets">
+            <button class="budget-preset-btn" data-amount="300">€300</button>
+            <button class="budget-preset-btn" data-amount="500">€500</button>
+            <button class="budget-preset-btn" data-amount="1000">€1,000</button>
+            <button class="budget-preset-btn" data-amount="2000">€2,000</button>
+            <button class="budget-preset-btn" data-amount="5000">€5,000</button>
+          </div>
+          <button class="budget-confirm-btn" id="budgetConfirmBtn">Confirm Budget</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TUTORIAL: People count modal ===== -->
+    <div class="people-modal-overlay" id="peopleModalOverlay">
+      <div class="people-modal">
+        <div class="people-modal-header">
+          <h3>👥 Number of Travelers</h3>
+          <button class="people-modal-close" id="peopleModalClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="people-modal-body">
+          <p style="font-size:13px;color:var(--moon-600);text-align:center;">How many people will be traveling?</p>
+          <div class="people-counter">
+            <button class="people-counter-btn" id="peopleMinus" aria-label="Decrease">&minus;</button>
+            <div class="people-count-display" id="peopleCountDisplay">2</div>
+            <button class="people-counter-btn" id="peoplePlus" aria-label="Increase">+</button>
+          </div>
+          <div class="people-count-label" id="peopleCountLabel">2 travelers</div>
+          <button class="people-confirm-btn" id="peopleConfirmBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+
+
+
+    <!-- Sky Info Modal — "How does Sky work?" -->
+    <div class="sky-info-overlay" id="skyInfoOverlay">
+      <div class="sky-info-modal">
+        <div class="sky-info-header">
+          <h3>🌍 How does Sky work?</h3>
+          <button class="sky-info-close" id="skyInfoClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="sky-info-body">
+
+          <div class="sky-info-step">
+            <div class="sky-step-num">1</div>
+            <div class="sky-step-content">
+              <h4>Tell Sky where you want to go</h4>
+              <p>Start by saying something like "I want to travel to Lisbon" or click <strong>Plan a Trip</strong>. Sky will ask for your destination and origin city.</p>
+            </div>
+          </div>
+
+          <div class="sky-info-step">
+            <div class="sky-step-num">2</div>
+            <div class="sky-step-content">
+              <h4>Share your travel details</h4>
+              <p>Sky will ask about your travel dates, budget, number of travellers, and how important sustainability is to you. You can use the calendar picker or type your answers.</p>
+            </div>
+          </div>
+
+          <div class="sky-info-step">
+            <div class="sky-step-num">3</div>
+            <div class="sky-step-content">
+              <h4>Get eco-scored transport options</h4>
+              <p>Sky compares trains, buses, cars, and planes for your route — each scored by carbon emissions, price, and travel time. Real data from the Climatiq and OpenRouteService APIs.</p>
+            </div>
+          </div>
+
+          <div class="sky-info-step">
+            <div class="sky-step-num">4</div>
+            <div class="sky-step-content">
+              <h4>Explore more</h4>
+              <p>After transport, you can search for eco-friendly accommodation, local activities, weather forecasts, city info, currency rates, and detailed carbon footprint breakdowns.</p>
+            </div>
+          </div>
+
+          <div class="sky-info-step">
+            <div class="sky-step-num">5</div>
+            <div class="sky-step-content">
+              <h4>Make greener choices</h4>
+              <p>Every option shows an Eco-Score (0–100). Green means low impact, amber is moderate, red is high. Sky helps you see the environmental trade-offs at a glance.</p>
+            </div>
+          </div>
+
+          <div class="sky-info-features">
+            <h4>What Sky can do</h4>
+            <div class="sky-feature-grid">
+              <div class="sky-feature"><span class="sky-feature-icon">🚂</span> Compare transport options</div>
+              <div class="sky-feature"><span class="sky-feature-icon">🏨</span> Find eco-friendly hotels</div>
+              <div class="sky-feature"><span class="sky-feature-icon">🎯</span> Discover local activities</div>
+              <div class="sky-feature"><span class="sky-feature-icon">📊</span> Calculate carbon footprint</div>
+              <div class="sky-feature"><span class="sky-feature-icon">🌤</span> Check weather forecast</div>
+              <div class="sky-feature"><span class="sky-feature-icon">🏙</span> Learn about destinations</div>
+              <div class="sky-feature"><span class="sky-feature-icon">💱</span> Convert currencies</div>
+              <div class="sky-feature"><span class="sky-feature-icon">📍</span> Detect your location (GPS)</div>
+            </div>
+          </div>
+
+        </div>
+        <div class="sky-info-footer">
+          <button class="sky-info-start-btn" id="skyInfoStartBtn">🌍 Let's plan a trip!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date picker spotlight tooltip -->
+    <div class="date-spotlight-tip" id="dateSpotlightTip">Pick a date</div>
+
+    <!-- Date picker modal -->
+    <div class="date-modal-overlay" id="dateModalOverlay">
+      <div class="date-modal">
+        <div class="date-modal-header">
+          <h3>📅 Select Travel Date</h3>
+          <button class="date-modal-close" id="dateModalClose" title="Close" aria-label="Close date picker">&times;</button>
+        </div>
+        <div class="date-mode-toggle">
+          <div class="date-mode-btn active" id="dateModeSingle" role="button" tabindex="0">Single Date</div>
+          <div class="date-mode-btn" id="dateModeRange" role="button" tabindex="0">Date Range</div>
+        </div>
+        <div class="date-calendar">
+          <div class="date-cal-nav">
+            <button id="dateCalPrev" aria-label="Previous month">&lsaquo;</button>
+            <span class="date-cal-title" id="dateCalTitle"></span>
+            <button id="dateCalNext" aria-label="Next month">&rsaquo;</button>
+          </div>
+          <div class="date-cal-weekdays">
+            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+          </div>
+          <div class="date-cal-days" id="dateCalDays"></div>
+        </div>
+        <div class="date-selection">
+          <div class="date-selection-text" id="dateSelectionText">Select a date above</div>
+          <button class="date-confirm-btn" id="dateConfirmBtn" disabled>Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GPS spotlight overlay — highlights GPS button when bot asks for origin -->
+    <div class="gps-spotlight-overlay" id="gpsSpotlightOverlay" aria-hidden="true"></div>
+    <div class="gps-spotlight-tip" id="gpsSpotlightTip">Tap to detect your location automatically</div>
+
+
+    <!-- Human handover modal -->
+    <div class="handover-modal-overlay" id="handoverModalOverlay" role="dialog" aria-modal="true" aria-label="Connecting to human agent">
+      <div class="handover-modal">
+        <div class="modal-icon">🧑‍💼</div>
+        <h3>Connecting You to an Agent</h3>
+        <p>We are connecting you with a human representative as quickly as possible. Please hold on — your conversation details have been shared so you won't need to repeat yourself.</p>
+        <div class="loader"><span></span><span></span><span></span></div>
+        <button class="btn-back" id="handoverBackBtn">Return to Chat</button>
+      </div>
+    </div>
+
+    <!-- Privacy info popup — MUST be before <script> so JS can find it -->
+    <div class="privacy-popup-overlay" id="privacyPopupOverlay"></div>
+    <div class="privacy-popup" id="privacyPopup" role="dialog" aria-label="Privacy information">
+      <button class="privacy-popup-close" id="privacyPopupClose" aria-label="Close">&times;</button>
+      <h4>🔒 Privacy &amp; Data</h4>
+      <ul>
+        <li>Conversations go to our Rasa server for responses — no logs stored permanently.</li>
+        <li>GPS location is sent to OpenStreetMap <strong>only</strong> when you tap the location button.</li>
+        <li>No cookies or tracking. Session data is in browser memory only.</li>
+        <li>Third-party APIs (OpenStreetMap, Climatiq, Open-Meteo) have their own privacy policies.</li>
+      </ul>
+      <div class="legal">GDPR Art. 6(1)(a) — consent. Withdraw anytime by closing this page.</div>
+    </div>
+
+
+    </main>
+  </div>
+
+  <!-- GPS Location Modal -->
+  <div class="gps-modal-overlay" id="gpsModalOverlay" role="dialog" aria-modal="true" aria-label="GPS location detection">
+    <div class="gps-modal">
+      <div class="gps-modal-header">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          Your Location
+        </h3>
+        <button class="gps-modal-close" id="gpsModalClose" title="Close" aria-label="Close location modal">&times;</button>
+      </div>
+      <div id="gpsMap"></div>
+      <div class="gps-modal-info">
+        <div class="gps-location-label">Detected location</div>
+        <div class="gps-location-value" id="gpsFullAddress">Detecting...</div>
+        <div class="gps-coords" id="gpsCoords"></div>
+      </div>
+      <div class="gps-modal-options">
+        <div class="gps-modal-options-label">Choose detail level</div>
+        <button class="gps-option-btn" id="gpsOptCity">
+          <div class="gps-option-icon">🏙️</div>
+          <div class="gps-option-text">
+            <div class="gps-option-title">City only</div>
+            <div class="gps-option-preview" id="gpsPreviewCity">—</div>
+          </div>
+        </button>
+        <button class="gps-option-btn" id="gpsOptMedium">
+          <div class="gps-option-icon">📮</div>
+          <div class="gps-option-text">
+            <div class="gps-option-title">City + postal code</div>
+            <div class="gps-option-preview" id="gpsPreviewMedium">—</div>
+          </div>
+        </button>
+        <button class="gps-option-btn" id="gpsOptFull">
+          <div class="gps-option-icon">📍</div>
+          <div class="gps-option-text">
+            <div class="gps-option-title">Full detail</div>
+            <div class="gps-option-preview" id="gpsPreviewFull">—</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════════════════════
+    // CONFIGURATION
+    // Change RASA_SERVER_URL to match your Rasa server address.
+    // Default: http://localhost:5005 (Rasa's default port)
+    // ══════════════════════════════════════════════════════════
+    const RASA_SERVER_URL = "http://localhost:5005";
+
+    // ══════════════════════════════════════════════════════════
+    // DOM ELEMENTS
+    // ══════════════════════════════════════════════════════════
+    const messagesEl      = document.getElementById("messages");
+    const quickRepliesEl  = document.getElementById("quickReplies");
+    const typingEl        = document.getElementById("typingIndicator");
+    const inputEl         = document.getElementById("userInput");
+    const btnSend         = document.getElementById("btnSend");
+    const btnHandover     = document.getElementById("btnHandover");
+    const btnNewTrip      = document.getElementById("btnNewTrip");
+    const statusDot       = document.getElementById("statusDot");
+    const statusText      = document.getElementById("statusText");
+    const handoverBanner  = document.getElementById("handoverBanner");
+    const tripListEl      = document.getElementById("tripList");
+    const noTripsEl       = document.getElementById("noTrips");
+
+    // Trip history stored in memory (persists across chats
+    // within the same browser session)
+    let tripHistory = [];
+
+    // Conversation history: stores all chats so the user
+    // can switch between them by clicking trip cards
+    let conversations = [];   // [{id, messagesHtml, sessionId}]
+    let activeConvoId = null;
+    let _suppressBotUttered = false;  // suppress stale messages during conversation switch
+
+    // ══════════════════════════════════════════════════════════
+    // SOCKET.IO CONNECTION
+    // Connects to Rasa's socketio channel defined in
+    // credentials.yml. Events match user_message_evt and
+    // bot_message_evt settings.
+    // ══════════════════════════════════════════════════════════
+    let socket;
+
+    // Named handler so we can re-attach it when switching conversations
+    function handleBotUttered(data) {
+      // Skip stale messages that arrive during conversation switch
+      if (_suppressBotUttered) return;
+      hideTyping();
+      handleBotMessage(data);
+    }
+
+    function connectToRasa() {
+      socket = io(RASA_SERVER_URL, {
+        path: "/socket.io/",
+        transports: ["polling", "websocket"],
+      });
+
+      // Connection opened — start a new session
+      socket.on("connect", () => {
+        setStatus("online");
+        // Send a session_request to get a sender_id
+        socket.emit("session_request", { session_id: getSessionId() });
+      });
+
+      // Session confirmed by Rasa
+      socket.on("session_confirm", (sessionId) => {
+        console.log("[Sky] Session confirmed", sessionId);
+        // Send an initial greeting to trigger utter_greet
+        socket.emit("user_uttered", { message: "/greet" });
+      });
+
+      // Bot sends a message back
+      socket.on("bot_uttered", handleBotUttered);
+
+      socket.on("disconnect", (reason) => {
+        console.log("[Sky] Disconnected:", reason);
+        setStatus("offline");
+      });
+      socket.on("connect_error", (err) => {
+        console.error("[Sky] Connection error:", err.message);
+        setStatus("offline");
+      });
+
+      // DEBUG: catch ALL events from the server
+      socket.onAny((eventName, ...args) => {
+        console.log("[Sky] EVENT:", eventName, args);
+      });
+    }
+
+    // Generate or retrieve a persistent session ID
+    function getSessionId() {
+      // Use a simple random ID; in production you'd use
+      // a proper user identifier or cookie.
+      if (!window._skySessionId) {
+        window._skySessionId = "sky_" + Math.random().toString(36).substring(2, 10);
+      }
+      return window._skySessionId;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // STATUS INDICATOR
+    // Shows whether the bot is online or offline.
+    // ══════════════════════════════════════════════════════════
+    function setStatus(state) {
+      if (state === "online") {
+        statusDot.className = "status-dot";
+        statusText.textContent = "Online";
+      } else {
+        statusDot.className = "status-dot offline";
+        statusText.textContent = "Offline — check Rasa server";
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // SEND USER MESSAGE
+    // Emits the message through Socket.IO and displays it
+    // in the chat window.
+    // ══════════════════════════════════════════════════════════
+    const welcomeBar      = document.getElementById("welcomeBar");
+    const welcomeBtnPlan  = document.getElementById("welcomeBtnPlan");
+    const welcomeBtnInfo  = document.getElementById("welcomeBtnInfo");
+
+    // Welcome bar state (must be before sendMessage)
+    let welcomeUserMsgCount = 0;
+    let welcomeDismissed = false;
+
+    // Tutorial state (must be before sendMessage — let vars are NOT hoisted)
+    let tutorialActive = false;
+    let tutorialStep = 0;
+    let tutorialConvoId = null;
+    let tutorialTypewriterTimer = null;
+    let destMap = null;
+    let peopleCount = 2;
+
+    function showWelcomeBar() {
+      if (welcomeDismissed) return;
+      welcomeBar.hidden = false;
+    }
+
+    function hideWelcomeBar() {
+      welcomeDismissed = true;
+      welcomeBar.hidden = true;
+    }
+
+        function sendMessage(text) {
+      _suppressBotUttered = false;
+      if (!text.trim()) return;
+
+      // If in tutorial mode, route to tutorial handler
+      if (tutorialActive) {
+        handleTutorialSend(text);
+        return;
+      }
+
+      // Track for welcome bar auto-dismiss
+      trackWelcomeMessage();
+      if (text === "/plan_trip") hideWelcomeBar();
+
+      // Display user's message in the chat
+      appendMessage("user", text);
+      clearQuickReplies();
+      showTyping();
+
+      // Send to Rasa via Socket.IO
+      socket.emit("user_uttered", { message: text });
+
+      // Clear input
+      inputEl.value = "";
+      inputEl.focus();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // HANDLE BOT RESPONSE
+    // Parses the bot_uttered event data. Rasa can send:
+    //   - text: plain text message
+    //   - buttons: quick-reply buttons
+    //   - custom: structured data (our transport cards)
+    // ══════════════════════════════════════════════════════════
+    function handleBotMessage(data) {
+      console.log("[Sky] Bot message:", data);
+
+      // Custom structured data (transport cards, etc.)
+      // When sent via custom={"data": {...}}, the payload
+      // arrives directly as the data object with payload_type.
+      if (data.payload_type) {
+        handleCustomPayload(data);
+        return;
+      }
+
+      // Plain text message
+      if (data.text) {
+        appendMessage("bot", data.text);
+
+        // Check if bot is asking for origin — show GPS spotlight
+        const textLower = data.text.toLowerCase();
+        if (ORIGIN_PATTERNS.some(p => textLower.includes(p))) {
+          setTimeout(showGpsSpotlight, 600); // Small delay for message to render
+        }
+
+        // Hide welcome bar when bot starts asking form questions
+        if (!welcomeDismissed) {
+          const formPatterns = ["where would you like", "which city", "where do you want", "what destination"];
+          if (formPatterns.some(p => textLower.includes(p))) {
+            hideWelcomeBar();
+          }
+        }
+
+        // Check if bot is asking for travel dates — show date picker spotlight
+        if (DATE_PATTERNS.some(p => textLower.includes(p))) {
+          setTimeout(showDateSpotlight, 600);
+        }
+      }
+
+      // Show welcome bar on first bot greeting
+      // (when bot sends welcome buttons with /sky_info payload)
+      const btns = data.buttons || data.quick_replies;
+      if (btns && btns.length > 0) {
+        // If this is the welcome message (has /sky_info), show our
+        // persistent welcome bar instead of regular quick replies
+        const hasWelcome = btns.some(b => b.payload === "/sky_info");
+        if (hasWelcome && !welcomeDismissed) {
+          showWelcomeBar();
+        } else {
+          showQuickReplies(btns);
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // CUSTOM PAYLOAD HANDLER
+    // Renders colour-coded transport result cards and other
+    // structured content sent by our custom actions.
+    // ══════════════════════════════════════════════════════════
+    function handleCustomPayload(payload) {
+
+      // Transport search results — colour-coded cards
+      if (payload.payload_type === "transport_results") {
+        // Show the header text as a bot message
+        if (payload.header) {
+          appendMessage("bot", payload.header);
+        }
+
+        // Build the card container
+        const cardsHtml = buildTransportCards(payload.results);
+        appendRawHtml("bot", cardsHtml);
+
+        // Show the tip as a follow-up
+        if (payload.tip) {
+          appendMessage("bot", payload.tip);
+        }
+
+        // Save to trip history if we have origin + destination
+        if (payload.origin && payload.destination) {
+          // Update conversation label with route info
+          const convoEntry = conversations.find(c => c.id === activeConvoId);
+          if (convoEntry) {
+            convoEntry.label = payload.origin + " → " + payload.destination;
+          }
+
+          addTripToHistory({
+            origin: payload.origin,
+            destination: payload.destination,
+            distance: payload.distance,
+            date: new Date().toLocaleDateString("en-GB", {
+              day: "numeric", month: "short", year: "numeric"
+            }),
+            bestMode: payload.results[0]?.mode || "—",
+            bestCarbon: payload.results[0]?.carbon_kg || 0,
+            bestColour: payload.results[0]?.colour || "green",
+            convoId: activeConvoId,
+          });
+        }
+
+        // Show buttons if included (check both keys)
+        const tBtns = payload.buttons || payload.quick_replies;
+        if (tBtns && tBtns.length > 0) {
+          showQuickReplies(tBtns);
+        }
+        return;
+      }
+
+      // Carbon comparison chart
+      if (payload.payload_type === "carbon_comparison") {
+        if (payload.header) appendMessage("bot", payload.header);
+        const chartHtml = buildCarbonChart(payload.comparisons);
+        appendRawHtml("bot", chartHtml);
+        if (payload.tip) appendMessage("bot", payload.tip);
+        return;
+      }
+
+      // Hotel search results — eco-certified hotel cards
+      if (payload.payload_type === "hotel_results") {
+        if (payload.header) appendMessage("bot", payload.header);
+        if (payload.hotels && payload.hotels.length > 0) {
+          const cardsHtml = buildHotelCards(payload.hotels);
+          appendRawHtml("bot", cardsHtml);
+        }
+        if (payload.tip) appendMessage("bot", payload.tip);
+        return;
+      }
+
+      // Activity search results — activity cards
+      if (payload.payload_type === "activity_results") {
+        if (payload.header) appendMessage("bot", payload.header);
+        if (payload.activities && payload.activities.length > 0) {
+          const cardsHtml = buildActivityCards(payload.activities);
+          appendRawHtml("bot", cardsHtml);
+        }
+        if (payload.tip) appendMessage("bot", payload.tip);
+        return;
+      }
+
+      // Carbon footprint calculation — per-mode cards
+      if (payload.payload_type === "carbon_footprint") {
+        if (payload.header) appendMessage("bot", payload.header);
+        if (payload.results && payload.results.length > 0) {
+          const cardsHtml = buildCarbonFootprintCards(payload);
+          appendRawHtml("bot", cardsHtml);
+        }
+        if (payload.tip) appendMessage("bot", payload.tip);
+        return;
+      }
+
+      // Weather forecast results — weather card
+      if (payload.payload_type === "weather_results") {
+        if (payload.header) appendMessage("bot", payload.header);
+        const weatherHtml = buildWeatherCard(payload);
+        appendRawHtml("bot", weatherHtml);
+        if (payload.tip) appendMessage("bot", payload.tip);
+        const wBtns = payload.buttons || payload.quick_replies;
+        if (wBtns && wBtns.length > 0) showQuickReplies(wBtns);
+        return;
+      }
+
+      // City info results — info card
+      if (payload.payload_type === "city_info") {
+        if (payload.header) appendMessage("bot", payload.header);
+        const cityHtml = buildCityInfoCard(payload);
+        appendRawHtml("bot", cityHtml);
+        if (payload.tip) appendMessage("bot", payload.tip);
+        const ciBtns = payload.buttons || payload.quick_replies;
+        if (ciBtns && ciBtns.length > 0) showQuickReplies(ciBtns);
+        return;
+      }
+
+      // Currency conversion results — conversion card
+      if (payload.payload_type === "currency_results") {
+        if (payload.header) appendMessage("bot", payload.header);
+        const currHtml = buildCurrencyCard(payload);
+        appendRawHtml("bot", currHtml);
+        if (payload.tip) appendMessage("bot", payload.tip);
+        const cuBtns = payload.buttons || payload.quick_replies;
+        if (cuBtns && cuBtns.length > 0) showQuickReplies(cuBtns);
+        return;
+      }
+
+      // Handover indicator
+      if (payload.payload_type === "handover") {
+        handoverBanner.classList.add("visible");
+        if (payload.text) appendMessage("bot", payload.text);
+        return;
+      }
+
+      // Fallback: if custom has text, just show it
+      if (payload.text) {
+        appendMessage("bot", payload.text);
+      }
+      const fBtns = payload.buttons || payload.quick_replies;
+      if (fBtns) {
+        showQuickReplies(fBtns);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD TRANSPORT CARDS HTML
+    // Creates colour-coded cards: green (eco-friendly),
+    // amber (moderate), red (high emissions).
+    // Assignment requirement: "colour-coded results cards"
+    // ══════════════════════════════════════════════════════════
+    function buildTransportCards(results) {
+      if (!results || results.length === 0) return "";
+
+      const modeIcons = {
+        train: "🚆", bus: "🚌", car: "🚗", plane: "✈️",
+        ferry: "⛴️", bicycle: "🚲",
+      };
+
+      let html = '<div class="transport-cards">';
+
+      results.forEach((r, i) => {
+        const colour = r.colour || "green";
+        const icon   = modeIcons[r.mode] || "🚀";
+        const carbon = r.carbon_kg >= 1000
+          ? (r.carbon_kg / 1000).toFixed(2) + " t CO2"
+          : r.carbon_kg.toFixed(1) + " kg CO2";
+
+        html += `
+          <div class="transport-card ${colour}">
+            <div class="rank">#${i + 1}</div>
+            <div class="card-body">
+              <h4>${icon} ${capitalise(r.mode)}</h4>
+              <div class="card-details">
+                <span class="eco-tip" data-tip="CO₂ emissions for this route. Lower is greener." tabindex="0">🌿 ${carbon}</span>
+                <span class="eco-tip" data-tip="Estimated ticket price per person" tabindex="0">💰 €${Math.round(r.price)}</span>
+                <span class="eco-tip" data-tip="Estimated travel time" tabindex="0">⏱ ~${r.hours.toFixed(1)}h</span>
+              </div>
+              ${colour === "red" ? '<div class="emission-alert">⚠️ High emissions — consider greener alternatives</div>' : ''}
+            </div>
+            <div class="eco-score">
+              <div class="score-value">${r.score}</div>
+              <div class="score-label">Eco-Score</div>
+            </div>
+          </div>`;
+      });
+
+      html += "</div>";
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD CARBON COMPARISON CHART
+    // Visual bar chart for side-by-side emissions comparison.
+    // ══════════════════════════════════════════════════════════
+    function buildCarbonChart(comparisons) {
+      if (!comparisons || comparisons.length === 0) return "";
+
+      const maxCarbon = Math.max(...comparisons.map(c => c.carbon_kg));
+
+      let html = '<div style="width:100%;margin-top:8px;">';
+
+      comparisons.forEach(c => {
+        const pct = maxCarbon > 0 ? (c.carbon_kg / maxCarbon) * 100 : 0;
+        const colour = c.colour === "green"
+          ? "var(--green-500)"
+          : c.colour === "amber"
+            ? "var(--amber-600)"
+            : "var(--red-600)";
+
+        const carbon = c.carbon_kg >= 1000
+          ? (c.carbon_kg / 1000).toFixed(2) + " t"
+          : c.carbon_kg.toFixed(1) + " kg";
+
+        html += `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <span style="width:60px;font-size:13px;font-weight:500;text-align:right;">${capitalise(c.mode)}</span>
+            <div style="flex:1;height:22px;background:var(--moon-100);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${colour};border-radius:4px;transition:width .5s;"></div>
+            </div>
+            <span class="eco-tip" data-tip="CO₂ emissions for ${c.mode}" tabindex="0" style="width:70px;font-size:12px;color:var(--moon-500);">${carbon} CO2</span>
+          </div>`;
+      });
+
+      html += "</div>";
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD HOTEL CARDS HTML
+    // Colour-coded eco-certified hotel cards with ratings,
+    // prices, certifications and eco-features.
+    // ══════════════════════════════════════════════════════════
+    function buildHotelCards(hotels) {
+      if (!hotels || hotels.length === 0) return "";
+
+      let html = '<div class="hotel-cards">';
+
+      hotels.forEach((h, i) => {
+        const colour = h.colour || "green";
+        const stars = h.stars ? "⭐".repeat(Math.round(h.stars)) : "";
+        const ratingText = h.rating ? `${stars} ${h.rating}/5` : (h.stars ? `${stars}` : "");
+
+        // Build certification tags
+        let certHtml = "";
+        if (h.certifications && h.certifications.length > 0) {
+          certHtml = '<div class="cert-tags">' +
+            h.certifications.map(c => `<span class="cert-tag eco-tip" data-tip="Sustainability certification — verified environmental standard" tabindex="0">🏷️ ${c}</span>`).join("") +
+            "</div>";
+        }
+
+        // Build eco-features line
+        let featHtml = "";
+        if (h.eco_features && h.eco_features.length > 0) {
+          featHtml = `<div class="eco-features eco-tip" data-tip="Green features this accommodation offers to reduce environmental impact" tabindex="0">🌿 ${h.eco_features.join(", ")}</div>`;
+        }
+
+        // Eco note (honest about certification status)
+        let ecoNoteHtml = "";
+        if (h.eco_note) {
+          const isPositive = h.eco_note.toLowerCase().includes("certified");
+          const noteColour = isPositive ? "var(--green-700)" : "var(--moon-500)";
+          ecoNoteHtml = `<div style="font-size:12px;color:${noteColour};margin-top:4px;font-style:italic;">🌿 ${h.eco_note}</div>`;
+        }
+
+        // Source badge (OpenStreetMap vs Curated)
+        let sourceHtml = "";
+        if (h.source) {
+          sourceHtml = `<span class="hotel-source">📍 ${h.source}</span>`;
+        }
+
+        // Price display
+        const priceText = h.price_per_night ? `💰 €${h.price_per_night}/night` : "";
+
+        html += `
+          <div class="hotel-card ${colour}">
+            <div class="card-header">
+              <div class="rank">#${i + 1}</div>
+              <div class="card-body">
+              <h4>🏨 ${h.name}</h4>
+              <div class="card-details">
+                ${ratingText ? `<span>${ratingText}</span>` : ""}
+                ${priceText ? `<span>${priceText}</span>` : ""}
+              </div>
+              ${certHtml}
+              ${featHtml}
+              ${ecoNoteHtml}
+              ${sourceHtml}
+              ${h.lat && h.lon ? '<div class="card-actions"><a class="card-action-btn" href="https://www.openstreetmap.org/?mlat=' + h.lat + '&mlon=' + h.lon + '#map=17/' + h.lat + '/' + h.lon + '" target="_blank" rel="noopener">📍 View on Map</a></div>' : ''}
+            </div>
+            <div class="eco-score eco-tip" data-tip="Eco-Score (0–100): rates the hotel's sustainability. Based on certifications and green features." tabindex="0">
+              <div class="score-value">${h.score}</div>
+              <div class="score-label">Eco-Score</div>
+            </div>
+          </div>`;
+      });
+
+      html += "</div>";
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD ACTIVITY CARDS HTML
+    // Cards for sustainable activities with type icons,
+    // prices, durations and eco notes.
+    // ══════════════════════════════════════════════════════════
+    function buildActivityCards(activities) {
+      if (!activities || activities.length === 0) return "";
+
+      const kindIcons = {
+        museum: "🏛️", castle: "🏰", monument: "🗿",
+        ruins: "🏚️", fort: "🏰", archaeological_site: "⛏️",
+        city_gate: "🚪", historic: "📜", attraction: "🎯",
+        tour: "🚢", "food tour": "🍽️", cycling: "🚲",
+        workshop: "🛠️", nature: "🌳", "water sport": "🛶",
+        cultural: "🏛️", hiking: "🥾", walking: "🚶",
+        volunteering: "🤝",
+      };
+
+      let html = '<div class="activity-cards">';
+
+      activities.forEach(a => {
+        const kind = a.kind || a.type || "attraction";
+        const icon = kindIcons[kind] || "🎯";
+        const priceText = a.price ? (a.price > 0 ? `€${a.price}` : "Free") : "Free entry";
+
+        // Description from Wikipedia (or fallback)
+        let descHtml = "";
+        if (a.description) {
+          descHtml = `<div class="act-description">${a.description}</div>`;
+        }
+
+        // Wikipedia link
+        let wikiHtml = "";
+        if (a.wiki_url) {
+          wikiHtml = `<a class="act-wiki-link" href="${a.wiki_url}" target="_blank" rel="noopener">📖 Read more on Wikipedia</a>`;
+        }
+
+        // Duration if available (old format compatibility)
+        const durationText = a.duration ? `<span>⏱ ${a.duration}</span>` : "";
+
+        html += `
+          <div class="activity-card">
+            <div class="act-icon">${icon}</div>
+            <div class="card-body">
+              <h4>${a.name}</h4>
+              <div class="card-details">
+                <span>📌 ${capitalise(kind)}</span>
+                <span>💰 ${priceText}</span>
+                ${durationText}
+              </div>
+              ${descHtml}
+              ${wikiHtml}
+              <div class="eco-note">🌿 ${a.eco_note || "Zero-emission cultural visit"}</div>
+              <div class="card-actions">
+                ${a.lat && a.lon ? '<a class="card-action-btn" href="https://www.openstreetmap.org/?mlat=' + a.lat + '&mlon=' + a.lon + '#map=17/' + a.lat + '/' + a.lon + '" target="_blank" rel="noopener">📍 View on Map</a>' : ''}
+                </div>
+            </div>
+          </div>`;
+      });
+
+      html += "</div>";
+      return html;
+    }
+
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD WEATHER CARD HTML
+    // Shows current weather and 3-day forecast from Open-Meteo.
+    // ══════════════════════════════════════════════════════════
+    function buildWeatherCard(payload) {
+      const cur = payload.current || {};
+      const forecast = payload.forecast || [];
+
+      // Weather condition icons
+      const conditionIcons = {
+        "Clear sky": "☀️", "Mainly clear": "🌤️",
+        "Partly cloudy": "⛅", "Overcast": "☁️",
+        "Fog": "🌫️", "Drizzle": "🌦️", "Rain": "🌧️",
+        "Heavy rain": "🌧️", "Snow": "❄️", "Thunderstorm": "⛈️",
+      };
+      const weatherIcon = conditionIcons[cur.condition] || "🌤️";
+
+      let html = `<div class="weather-card">`;
+
+      // Current weather
+      html += `
+        <div class="weather-current">
+          <div class="weather-icon">${weatherIcon}</div>
+          <div class="weather-main">
+            <div class="weather-temp">${cur.temperature}°C</div>
+            <div class="weather-condition">${cur.condition}</div>
+            <div class="weather-details">
+              <span>💧 ${cur.precipitation} mm</span>
+              <span>💨 ${cur.wind_speed} km/h</span>
+            </div>
+          </div>
+        </div>`;
+
+      // 3-day forecast
+      if (forecast.length > 0) {
+        html += `<div class="weather-forecast">`;
+        forecast.forEach(day => {
+          const d = new Date(day.date);
+          const dayName = d.toLocaleDateString("en-GB", { weekday: "short" });
+          const rainIcon = day.rain_mm > 1 ? "🌧️" : day.rain_mm > 0 ? "🌦️" : "☀️";
+          html += `
+            <div class="forecast-day">
+              <div class="day-label">${dayName}</div>
+              <div>${rainIcon}</div>
+              <div class="day-temps">${Math.round(day.temp_min)}° / ${Math.round(day.temp_max)}°</div>
+              <div class="day-rain">${day.rain_mm} mm</div>
+            </div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Travel advice
+      if (payload.travel_tip) {
+        html += `<div class="travel-advice">🧳 ${payload.travel_tip}</div>`;
+      }
+
+      html += `</div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD CITY INFO CARD HTML
+    // Shows Wikipedia summary and link for the destination.
+    // ══════════════════════════════════════════════════════════
+    function buildCityInfoCard(payload) {
+      let html = `<div class="city-info-card">`;
+      html += `<h4 class="city-title">📍 ${payload.title || payload.destination}</h4>`;
+
+      if (payload.description) {
+        html += `<div class="city-subtitle">${payload.description}</div>`;
+      }
+
+      html += `<div class="city-summary">${payload.summary}</div>`;
+
+      if (payload.wiki_url) {
+        html += `<a class="wiki-link" href="${payload.wiki_url}" target="_blank" rel="noopener">📖 Read more on Wikipedia →</a>`;
+      }
+
+      html += `</div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD CURRENCY CARD HTML
+    // Shows exchange rates from Frankfurter (ECB) API.
+    // ══════════════════════════════════════════════════════════
+    function buildCurrencyCard(payload) {
+      const conversions = payload.conversions || [];
+      const flags = {
+        EUR: "🇪🇺", GBP: "🇬🇧", USD: "🇺🇸", TRY: "🇹🇷",
+        CHF: "🇨🇭", SEK: "🇸🇪", NOK: "🇳🇴", DKK: "🇩🇰",
+        CZK: "🇨🇿", PLN: "🇵🇱", HUF: "🇭🇺", ISK: "🇮🇸",
+        HRK: "🇭🇷", RON: "🇷🇴", BGN: "🇧🇬", JPY: "🇯🇵",
+        AUD: "🇦🇺", CAD: "🇨🇦", SGD: "🇸🇬",
+      };
+
+      let html = `<div class="currency-card"><div class="currency-rows">`;
+
+      conversions.forEach(c => {
+        const fromFlag = flags[c.from_cur] || "💱";
+        const toFlag = flags[c.to_cur] || "💱";
+        html += `
+          <div class="currency-row">
+            <div>
+              <div class="currency-from">${fromFlag} ${c.amount.toFixed(0)} ${c.from_cur}</div>
+            </div>
+            <div class="currency-arrow">→</div>
+            <div>
+              <div class="currency-to">${toFlag} ${c.converted.toFixed(2)} ${c.to_cur}</div>
+              <div class="currency-rate">Rate: 1 ${c.from_cur} = ${c.rate.toFixed(4)} ${c.to_cur}</div>
+            </div>
+          </div>`;
+      });
+
+      // Show date of rates
+      if (conversions.length > 0 && conversions[0].date) {
+        html += `<div class="currency-date">📅 Rates as of ${conversions[0].date}</div>`;
+      }
+
+      html += `</div></div>`;
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD CARBON FOOTPRINT CARDS HTML
+    // Per-mode carbon cards with visual bars showing relative
+    // emissions, per-person and total figures.
+    // ══════════════════════════════════════════════════════════
+    function buildCarbonFootprintCards(payload) {
+      const results = payload.results;
+      if (!results || results.length === 0) return "";
+
+      const modeIcons = {
+        train: "🚆", bus: "🚌", car: "🚗", plane: "✈️",
+      };
+
+      const maxCarbon = Math.max(...results.map(r => r.carbon_per_person));
+      const travelers = payload.travelers || 1;
+
+      let html = '<div class="carbon-cards">';
+
+      results.forEach(r => {
+        const colour = r.colour || "green";
+        const icon = modeIcons[r.mode] || "🚀";
+        const pct = maxCarbon > 0 ? (r.carbon_per_person / maxCarbon) * 100 : 0;
+
+        const perPerson = r.carbon_per_person >= 1000
+          ? (r.carbon_per_person / 1000).toFixed(2) + " t CO2"
+          : r.carbon_per_person.toFixed(1) + " kg CO2";
+
+        const total = r.carbon_total >= 1000
+          ? (r.carbon_total / 1000).toFixed(2) + " t CO2"
+          : r.carbon_total.toFixed(1) + " kg CO2";
+
+        html += `
+          <div class="carbon-card ${colour}">
+            <div class="mode-icon">${icon}</div>
+            <div class="card-body">
+              <h4>${capitalise(r.mode)}</h4>
+              <div class="carbon-bar-wrap eco-tip" data-tip="Relative emissions — bar length compares to the highest-emitting option" tabindex="0">
+                <div class="carbon-bar" style="width:${pct}%"></div>
+              </div>
+              <div class="card-details">
+                <span class="eco-tip" data-tip="CO₂ emitted per passenger for this transport mode" tabindex="0">👤 ${perPerson}/person</span>
+                <span class="eco-tip" data-tip="Total CO₂ for all travellers combined" tabindex="0">👥 ${total} total (${travelers})</span>
+              </div>
+              ${colour === "red" ? '<div class="emission-alert">⚠️ High carbon footprint</div>' : ''}
+            </div>
+          </div>`;
+      });
+
+      html += "</div>";
+      return html;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // APPEND MESSAGE TO CHAT
+    // Creates a message bubble for bot or user.
+    // ══════════════════════════════════════════════════════════
+    function appendMessage(sender, text) {
+      const msg = document.createElement("div");
+      msg.className = `msg ${sender}`;
+      msg.setAttribute("role", "article");
+      msg.setAttribute("aria-label", sender === "bot" ? "Sky says" : "You said");
+
+      const avatar = document.createElement("div");
+      avatar.className = "msg-avatar";
+      avatar.textContent = sender === "bot" ? "🌍" : "👤";
+      avatar.setAttribute("aria-hidden", "true");
+
+      const bubble = document.createElement("div");
+      bubble.className = "msg-bubble";
+      bubble.textContent = text;
+
+      msg.appendChild(avatar);
+      msg.appendChild(bubble);
+      messagesEl.appendChild(msg);
+      scrollToBottom();
+    }
+
+    // Append raw HTML inside a bot message bubble
+    function appendRawHtml(sender, html) {
+      const msg = document.createElement("div");
+      msg.className = `msg ${sender}`;
+
+      const avatar = document.createElement("div");
+      avatar.className = "msg-avatar";
+      avatar.textContent = "🌍";
+
+      const bubble = document.createElement("div");
+      bubble.className = "msg-bubble";
+      bubble.innerHTML = html;
+
+      msg.appendChild(avatar);
+      msg.appendChild(bubble);
+      messagesEl.appendChild(msg);
+      scrollToBottom();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // QUICK-REPLY BUTTONS
+    // Assignment requirement: "quick-reply buttons"
+    // Shown below the chat; clicking sends the button payload.
+    // ══════════════════════════════════════════════════════════
+    function showQuickReplies(buttons) {
+      quickRepliesEl.setAttribute("aria-label", "Quick reply options: " + buttons.map(b => b.title).join(", "));
+      clearQuickReplies();
+      buttons.forEach(btn => {
+        const el = document.createElement("button");
+        el.className = "quick-reply-btn";
+        el.textContent = btn.title;
+        el._payload = btn.payload || btn.title;
+        el.addEventListener("click", () => {
+          const payload = btn.payload || btn.title;
+          if (payload === "/sky_info") {
+            openSkyInfo();
+            clearQuickReplies();
+            return;
+          }
+          sendMessage(payload);
+        });
+        quickRepliesEl.appendChild(el);
+      });
+    }
+
+    function clearQuickReplies() {
+      quickRepliesEl.innerHTML = "";
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // TYPING INDICATOR
+    // ══════════════════════════════════════════════════════════
+    function showTyping() {
+      typingEl.classList.add("visible");
+      scrollToBottom();
+    }
+
+    function hideTyping() {
+      typingEl.classList.remove("visible");
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // TRIP HISTORY SIDEBAR
+    // Keeps track of searched trips in the left panel.
+    // ══════════════════════════════════════════════════════════
+    function addTripToHistory(trip) {
+      // Deduplicate: if this conversation already has a trip, update it
+      const existingIdx = tripHistory.findIndex(t => t.convoId === trip.convoId);
+      if (existingIdx !== -1) {
+        // Update the existing entry with latest data
+        tripHistory[existingIdx] = { ...tripHistory[existingIdx], ...trip };
+      } else {
+        tripHistory.unshift(trip);
+      }
+      renderTripHistory();
+    }
+
+    function renderTripHistory() {
+      // Build a merged list: every conversation, with trip data where available
+      // Pinned conversations come first, then the rest in order
+      const merged = conversations.map(convo => {
+        const trip = tripHistory.find(t => t.convoId === convo.id);
+        return {
+          convoId: convo.id,
+          trip: trip || null,
+          pinned: convo.pinned || false,
+          createdAt: convo.createdAt || 0,
+        };
+      });
+
+      // Sort: pinned first, then newest first
+      merged.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return b.createdAt - a.createdAt;
+      });
+
+      // Hide "no conversations" message
+      if (merged.length > 0) {
+        noTripsEl.style.display = "none";
+      } else {
+        noTripsEl.style.display = "";
+      }
+
+      // Remove old cards
+      tripListEl.querySelectorAll(".trip-card").forEach(el => el.remove());
+
+      merged.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "trip-card";
+        if (!item.trip) card.classList.add("convo-only");
+        if (item.convoId === activeConvoId) card.classList.add("active");
+
+        let routeHtml = "";
+        let metaHtml = "";
+        const pinIcon = item.pinned ? '<span class="pin-badge" title="Pinned">📌</span>' : "";
+
+        if (item.trip) {
+          // Conversation with trip data
+          const t = item.trip;
+          const convo = conversations.find(c => c.id === item.convoId);
+          const carbon = t.bestCarbon >= 1000
+            ? (t.bestCarbon / 1000).toFixed(1) + " t CO2"
+            : t.bestCarbon.toFixed(0) + " kg CO2";
+          // Use custom label if user renamed, otherwise show route
+          if (t.customLabel) {
+            routeHtml = `${t.customLabel}${pinIcon}`;
+          } else {
+            routeHtml = `${t.origin} <span class="arrow">&rarr;</span> ${t.destination}${pinIcon}`;
+          }
+          metaHtml = `
+            <div class="meta">
+              <span>${t.date}</span>
+              <span>${t.distance || "\u2014"} km</span>
+              <span class="carbon-badge ${t.bestColour} eco-tip tip-bottom"
+                    data-tip="Lowest CO\u2082 option found for this trip" tabindex="0">
+                \u2248 ${carbon}
+              </span>
+            </div>`;
+        } else {
+          // Conversation without trip data yet
+          const convo = conversations.find(c => c.id === item.convoId);
+          const label = convo && convo.label ? convo.label : "New conversation";
+          const tutBadge = (convo && convo.isTutorial) ? '<span class="tutorial-badge">Tour</span>' : '';
+          routeHtml = `${label}${tutBadge}${pinIcon}`;
+          metaHtml = convo && convo.isTutorial
+            ? '<div class="meta"><span>Interactive tutorial</span></div>'
+            : '<div class="meta"><span>No trip searched yet</span></div>';
+        }
+
+        card.innerHTML = `
+          <div class="trip-card-header">
+            <div class="route">${routeHtml}</div>
+            <div class="trip-menu-btn" title="Options" aria-label="Trip options" role="button" tabindex="0">
+              ⋮
+              <div class="trip-menu-dropdown">
+                <div class="menu-item" data-action="rename">
+                  <span class="menu-icon">✏️</span>
+                  Rename
+                </div>
+                <div class="menu-item" data-action="pin">
+                  <span class="menu-icon">${item.pinned ? "📌" : "📌"}</span>
+                  ${item.pinned ? "Unpin" : "Pin to top"}
+                </div>
+                <div class="menu-item danger" data-action="delete">
+                  <span class="menu-icon">🗑️</span>
+                  Delete conversation
+                </div>
+              </div>
+            </div>
+          </div>
+          ${metaHtml}`;
+
+        // Click card body to switch conversation
+        card.addEventListener("click", (e) => {
+          // Don't switch if clicking on menu
+          if (e.target.closest(".trip-menu-btn")) return;
+          switchToConversation(item.convoId);
+        });
+
+        // 3-dot menu toggle
+        const menuBtn = card.querySelector(".trip-menu-btn");
+        const dropdown = card.querySelector(".trip-menu-dropdown");
+
+        menuBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          // Close any other open dropdowns first
+          document.querySelectorAll(".trip-menu-dropdown.open").forEach(d => {
+            if (d !== dropdown) d.classList.remove("open");
+          });
+          dropdown.classList.toggle("open");
+        });
+
+        // Rename action
+        dropdown.querySelector('[data-action="rename"]').addEventListener("click", (e) => {
+          e.stopPropagation();
+          dropdown.classList.remove("open");
+          renameConversation(item.convoId, menuBtn);
+        });
+
+        // Pin action
+        dropdown.querySelector('[data-action="pin"]').addEventListener("click", (e) => {
+          e.stopPropagation();
+          dropdown.classList.remove("open");
+          pinConversation(item.convoId);
+        });
+
+        // Delete action
+        dropdown.querySelector('[data-action="delete"]').addEventListener("click", (e) => {
+          e.stopPropagation();
+          dropdown.classList.remove("open");
+          deleteConversation(item.convoId);
+        });
+
+        tripListEl.appendChild(card);
+      });
+    }
+
+    // Close dropdown menus when clicking outside
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".trip-menu-dropdown.open").forEach(d => {
+        d.classList.remove("open");
+      });
+    });
+
+    // Pin / unpin a conversation (toggle)
+    function pinConversation(convoId) {
+      const convo = conversations.find(c => c.id === convoId);
+      if (convo) {
+        convo.pinned = !convo.pinned;
+      }
+      renderTripHistory();
+    }
+
+    // Rename popover elements
+    const renameOverlay  = document.getElementById("renameOverlay");
+    const renamePopover  = document.getElementById("renamePopover");
+    const renameInput    = document.getElementById("renameInput");
+    const renameBtnSave  = document.getElementById("renameBtnSave");
+    const renameBtnCancel = document.getElementById("renameBtnCancel");
+    let _renameTargetId  = null;
+
+    // Open the inline rename popover near the clicked card
+    function renameConversation(convoId, anchorEl) {
+      const convo = conversations.find(c => c.id === convoId);
+      if (!convo) return;
+
+      _renameTargetId = convoId;
+      renameInput.value = convo.label || "New conversation";
+
+      // Position the popover near the anchor element (the menu button)
+      if (anchorEl) {
+        const rect = anchorEl.getBoundingClientRect();
+        const sidebarRect = document.querySelector(".sidebar").getBoundingClientRect();
+        renamePopover.style.top  = rect.bottom + 4 + "px";
+        renamePopover.style.left = Math.max(sidebarRect.left + 8, rect.right - 220) + "px";
+      }
+
+      renamePopover.hidden = false;
+      renameOverlay.classList.add("open");
+      renameInput.focus();
+      renameInput.select();
+    }
+
+    function closeRenamePopover() {
+      renamePopover.hidden = true;
+      renameOverlay.classList.remove("open");
+      _renameTargetId = null;
+    }
+
+    function applyRename() {
+      if (!_renameTargetId) return;
+      const newName = renameInput.value.trim();
+      if (newName === "") { closeRenamePopover(); return; }
+
+      const convo = conversations.find(c => c.id === _renameTargetId);
+      if (convo) {
+        convo.label = newName;
+      }
+      const trip = tripHistory.find(t => t.convoId === _renameTargetId);
+      if (trip) {
+        trip.customLabel = newName;
+      }
+      closeRenamePopover();
+      renderTripHistory();
+    }
+
+    renameBtnSave.addEventListener("click", applyRename);
+    renameBtnCancel.addEventListener("click", closeRenamePopover);
+    renameOverlay.addEventListener("click", closeRenamePopover);
+    renameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") applyRename();
+      if (e.key === "Escape") closeRenamePopover();
+    });
+
+    // Delete a conversation and its trip history
+    function deleteConversation(convoId) {
+      // Prevent deleting the last conversation
+      if (conversations.length <= 1) return;
+
+      // Remove from conversations array
+      conversations = conversations.filter(c => c.id !== convoId);
+
+      // Remove from trip history
+      tripHistory = tripHistory.filter(t => t.convoId !== convoId);
+
+      // If we deleted the active conversation, switch to the first available
+      if (activeConvoId === convoId) {
+        const fallback = conversations[0];
+        if (fallback) {
+          activeConvoId = fallback.id;
+          messagesEl.innerHTML = fallback.messagesHtml || "";
+          clearQuickReplies();
+          handoverBanner.classList.remove("visible");
+          // Reconnect to that conversation's session
+          if (fallback.sessionId) {
+            if (socket) socket.disconnect();
+            window._skySessionId = fallback.sessionId;
+            socket = io(RASA_SERVER_URL, {
+              path: "/socket.io/",
+              transports: ["polling", "websocket"],
+            });
+            socket.on("connect", () => {
+              setStatus("online");
+              socket.emit("session_request", { session_id: fallback.sessionId });
+            });
+            socket.on("session_confirm", (sid) => {
+              console.log("[Sky] Resumed session", sid);
+            });
+            socket.on("bot_uttered", handleBotUttered);
+            socket.on("disconnect", () => setStatus("offline"));
+            socket.on("connect_error", () => setStatus("error"));
+          }
+        }
+      }
+
+      renderTripHistory();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // CONVERSATION MANAGEMENT
+    // Allows multiple chats; "New Trip" starts a fresh one
+    // while preserving all previous conversations.
+    // ══════════════════════════════════════════════════════════
+    function saveCurrentConversation() {
+      if (!activeConvoId) return;
+      const convo = conversations.find(c => c.id === activeConvoId);
+      if (convo) {
+        convo.messagesHtml = messagesEl.innerHTML;
+        // Save quick reply buttons so they reappear when switching back
+        const qrBtns = quickRepliesEl.querySelectorAll(".quick-reply-btn");
+        if (qrBtns.length > 0) {
+          convo.quickReplies = Array.from(qrBtns).map(btn => ({
+            title: btn.textContent,
+            payload: btn._payload || btn.textContent,
+          }));
+        } else {
+          convo.quickReplies = null;
+        }
+      }
+    }
+
+    function switchToConversation(convoId) {
+      if (convoId === activeConvoId) return;
+      saveCurrentConversation();
+
+      const convo = conversations.find(c => c.id === convoId);
+      if (convo) {
+        activeConvoId = convoId;
+        messagesEl.innerHTML = convo.messagesHtml || "";
+        clearQuickReplies();
+        // Restore saved quick reply buttons for this conversation
+        if (convo.quickReplies && convo.quickReplies.length > 0) {
+          showQuickReplies(convo.quickReplies);
+        }
+        handoverBanner.classList.remove("visible");
+
+        // Reconnect to the Rasa session for this conversation
+        if (convo.sessionId) {
+          if (socket) socket.disconnect();
+          window._skySessionId = convo.sessionId;
+
+          // Suppress any stale bot messages during reconnect
+          _suppressBotUttered = true;
+
+          socket = io(RASA_SERVER_URL, {
+            path: "/socket.io/",
+            transports: ["polling", "websocket"],
+          });
+          socket.on("connect", () => {
+            setStatus("online");
+            socket.emit("session_request", { session_id: convo.sessionId });
+          });
+          socket.on("session_confirm", (sid) => {
+            console.log("[Sky] Resumed session", sid);
+            // Allow bot messages again after session is confirmed
+            _suppressBotUttered = false;
+          });
+          socket.on("bot_uttered", handleBotUttered);
+          socket.on("disconnect", () => setStatus("offline"));
+          socket.on("connect_error", () => setStatus("error"));
+        }
+
+        renderTripHistory();
+        scrollToBottom();
+
+        // Handle tutorial state when switching conversations
+        const switchedConvo = conversations.find(c => c.id === convoId);
+        if (switchedConvo && switchedConvo.isTutorial) {
+          tutorialActive = true;
+          setStatus("online");
+        } else {
+          if (tutorialActive) endTutorial();
+        }
+      }
+    }
+
+    function startNewTrip() {
+      // End any active tutorial
+      if (tutorialActive) endTutorial();
+      // Reset GPS and date buttons to inert for new conversation
+      var gpsBtnEl = document.getElementById("btnGps");
+      var dateBtnEl = document.getElementById("btnDate");
+      if (gpsBtnEl) { gpsBtnEl.classList.add("btn-inert"); gpsBtnEl.classList.remove("btn-ready"); }
+      if (dateBtnEl) { dateBtnEl.classList.add("btn-inert"); dateBtnEl.classList.remove("btn-ready"); dateBtnEl.hidden = true; }
+      // Reset welcome bar for the new conversation
+      welcomeUserMsgCount = 0;
+      welcomeDismissed = false;
+      // Save current chat
+      saveCurrentConversation();
+
+      // Create a new conversation
+      const newId = "convo_" + Date.now();
+      const newSessionId = "sky_" + Math.random().toString(36).substring(2, 10);
+      window._skySessionId = newSessionId;
+      conversations.push({
+        id: newId,
+        messagesHtml: "",
+        sessionId: newSessionId,
+        pinned: false,
+        createdAt: Date.now(),
+        label: "New conversation",
+      });
+      activeConvoId = newId;
+
+      // Clear the chat area
+      messagesEl.innerHTML = "";
+      clearQuickReplies();
+      handoverBanner.classList.remove("visible");
+
+      // Disconnect and reconnect to get a fresh Rasa session
+      if (socket) {
+        socket.disconnect();
+      }
+
+      connectToRasa();
+      renderTripHistory();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // HUMAN HANDOVER
+    // Assignment requirement: "human handover indicator"
+    // Sends a /request_human intent to Rasa and shows
+    // the handover banner.
+    // ══════════════════════════════════════════════════════════
+    btnHandover.addEventListener("click", () => {
+      sendMessage("/request_human");
+      handoverBanner.classList.add("visible");
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // NEW TRIP BUTTON
+    // Starts a fresh conversation while keeping history.
+    // ══════════════════════════════════════════════════════════
+    btnNewTrip.addEventListener("click", () => {
+      startNewTrip();
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // UTILITIES
+    // ══════════════════════════════════════════════════════════
+    function capitalise(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // GPS LOCATION DETECTION
+    // Uses browser Geolocation API + Nominatim reverse geocoding
+    // to auto-detect the user's city for the origin slot.
+    // Nominatim policy: max 1 req/sec, real User-Agent required.
+    // ══════════════════════════════════════════════════════════
+    const btnGps   = document.getElementById("btnGps");
+    const gpsToast = document.getElementById("gpsToast");
+
+    function showGpsToast(msg, duration = 3000) {
+      gpsToast.textContent = msg;
+      gpsToast.classList.add("visible");
+      setTimeout(() => gpsToast.classList.remove("visible"), duration);
+    }
+
+    // GPS Modal elements
+    const gpsOverlay     = document.getElementById("gpsModalOverlay");
+    const gpsModalClose  = document.getElementById("gpsModalClose");
+    const gpsFullAddress = document.getElementById("gpsFullAddress");
+    const gpsCoordsEl    = document.getElementById("gpsCoords");
+    const gpsPreviewCity   = document.getElementById("gpsPreviewCity");
+    const gpsPreviewMedium = document.getElementById("gpsPreviewMedium");
+    const gpsPreviewFull   = document.getElementById("gpsPreviewFull");
+
+    let gpsMap = null;      // Leaflet map instance
+    let gpsMarker = null;   // Leaflet marker
+    let gpsAddrData = null; // Nominatim address response
+
+    function openGpsModal()  { gpsOverlay.classList.add("open"); }
+    function closeGpsModal() { gpsOverlay.classList.remove("open"); }
+
+    // Close modal on X button or overlay click
+    gpsModalClose.addEventListener("click", closeGpsModal);
+    gpsOverlay.addEventListener("click", (e) => {
+      if (e.target === gpsOverlay) closeGpsModal();
+    });
+
+    // Build location strings from Nominatim address at 3 detail levels
+    function buildLocationStrings(addr) {
+      const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
+      const postcode = addr.postcode || "";
+      const suburb = addr.suburb || addr.neighbourhood || addr.quarter || "";
+      const road = addr.road || "";
+      const country = addr.country || "";
+
+      // Level 1: City only
+      const cityStr = city || country || "Unknown";
+
+      // Level 2: City + postal code
+      const mediumParts = [city, postcode].filter(Boolean);
+      const mediumStr = mediumParts.join(", ") || cityStr;
+
+      // Level 3: Full detail — neighbourhood, road, city, postcode
+      const fullParts = [suburb, road, city, postcode].filter(Boolean);
+      const fullStr = fullParts.join(", ") || mediumStr;
+
+      return { city: cityStr, medium: mediumStr, full: fullStr };
+    }
+
+    // Initialise or update the Leaflet map inside the modal
+    function initGpsMap(lat, lon) {
+      if (!gpsMap) {
+        gpsMap = L.map("gpsMap", {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([lat, lon], 14);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 18,
+          attribution: "&copy; OpenStreetMap"
+        }).addTo(gpsMap);
+
+        // Small attribution in corner
+        L.control.attribution({ position: "bottomright", prefix: false })
+          .addAttribution("&copy; <a href='https://www.openstreetmap.org/copyright'>OSM</a>")
+          .addTo(gpsMap);
+
+        gpsMarker = L.marker([lat, lon]).addTo(gpsMap);
+      } else {
+        gpsMap.setView([lat, lon], 14);
+        gpsMarker.setLatLng([lat, lon]);
+      }
+
+      // Leaflet needs a size recalculation after the modal opens
+      setTimeout(() => gpsMap.invalidateSize(), 100);
+    }
+
+    async function detectLocation() {
+      // Check browser support
+      if (!navigator.geolocation) {
+        showGpsToast("GPS not supported in this browser");
+        return;
+      }
+
+      // Set detecting state on button
+      btnGps.classList.add("detecting");
+      btnGps.disabled = true;
+      showGpsToast("Detecting your location...", 10000);
+
+      try {
+        // Step 1: Get coordinates from browser Geolocation API
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000   // Cache for 5 minutes
+          });
+        });
+
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        // Step 2: Reverse geocode with Nominatim (free, no key needed)
+        // Policy: max 1 req/sec, real User-Agent required
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&addressdetails=1`,
+          {
+            headers: {
+              "User-Agent": "SkyEcoTravelAdvisor/1.0 (student-project)"
+            }
+          }
+        );
+
+        if (!response.ok) throw new Error("Nominatim request failed");
+
+        const data = await response.json();
+        const addr = data.address || {};
+        gpsAddrData = addr;
+
+        // Build 3 detail levels
+        const loc = buildLocationStrings(addr);
+
+        // Update modal content
+        gpsFullAddress.textContent = data.display_name || "Unknown location";
+        gpsCoordsEl.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        gpsPreviewCity.textContent = loc.city;
+        gpsPreviewMedium.textContent = loc.medium;
+        gpsPreviewFull.textContent = loc.full;
+
+        // Open modal and show map
+        openGpsModal();
+        initGpsMap(lat, lon);
+
+        showGpsToast("Location found!", 2000);
+
+      } catch (err) {
+        if (err.code === 1) {
+          showGpsToast("Location access denied — please allow in browser settings");
+        } else if (err.code === 2) {
+          showGpsToast("Location unavailable — try again later");
+        } else if (err.code === 3) {
+          showGpsToast("Location request timed out");
+        } else {
+          showGpsToast("Could not detect location");
+        }
+        console.warn("[Sky] GPS error:", err);
+      } finally {
+        btnGps.classList.remove("detecting");
+        btnGps.disabled = false;
+      }
+    }
+
+    // GPS button click handler — opens modal with map
+    btnGps.addEventListener("click", detectLocation);
+
+    // Detail level button handlers — insert chosen text and close modal
+    function selectGpsOption(text) {
+      closeGpsModal();
+      // Reset GPS modal z-index if it was raised for tutorial
+      var gpsOv = document.getElementById("gpsModalOverlay");
+      if (gpsOv) gpsOv.style.zIndex = "";
+      showGpsToast("Selected: " + text);
+      // During tutorial, auto-send the location as a chat message
+      if (tutorialActive) {
+        handleTutorialSend("I'm traveling from " + text);
+        return;
+      }
+      inputEl.value = text;
+      inputEl.focus();
+    }
+
+    document.getElementById("gpsOptCity").addEventListener("click", () => {
+      selectGpsOption(gpsPreviewCity.textContent);
+    });
+    document.getElementById("gpsOptMedium").addEventListener("click", () => {
+      selectGpsOption(gpsPreviewMedium.textContent);
+    });
+    document.getElementById("gpsOptFull").addEventListener("click", () => {
+      selectGpsOption(gpsPreviewFull.textContent);
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // GPS SPOTLIGHT
+    // When the bot asks for origin, highlight the GPS button
+    // with a blur overlay + tooltip. Clicking anywhere dismisses.
+    // ══════════════════════════════════════════════════════════
+    const spotlightOverlay = document.getElementById("gpsSpotlightOverlay");
+    const spotlightTip     = document.getElementById("gpsSpotlightTip");
+    let spotlightActive = false;
+
+    // Origin question patterns the bot sends
+    const ORIGIN_PATTERNS = [
+      "where will you be travelling from",
+      "where will you be departing from",
+      "what's your starting city",
+      "what is your starting city",
+      "departing from? for example",      // "Which city in X are you departing from? For example:"
+      "you'll be departing from"          // "Could you tell me which city in X you'll be departing from?"
+    ];
+
+    function showGpsSpotlight() {
+      if (spotlightActive) return;
+      spotlightActive = true;
+
+      // Activate GPS button (remove disabled state, add green glow)
+      btnGps.classList.remove("btn-inert");
+      btnGps.classList.add("btn-ready");
+    }
+
+    function hideGpsSpotlight() {
+      if (!spotlightActive) return;
+      spotlightActive = false;
+      btnGps.classList.remove("btn-ready");
+      btnGps.classList.add("btn-inert");
+    }
+
+    // Dismiss when GPS button is clicked (user is using it)
+    btnGps.addEventListener("click", hideGpsSpotlight);
+
+
+    // ══════════════════════════════════════════════════════════
+    // EVENT LISTENERS
+    // ══════════════════════════════════════════════════════════
+
+    // Send on Enter key
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendMessage(inputEl.value);
+      }
+    });
+
+
+
+
+
+    // ══════════════════════════════════════════════════════════
+    // SKY INFO MODAL — "How does Sky work?" onboarding guide
+    // ══════════════════════════════════════════════════════════
+    const skyInfoOverlay = document.getElementById("skyInfoOverlay");
+    const skyInfoClose   = document.getElementById("skyInfoClose");
+    const skyInfoStartBtn = document.getElementById("skyInfoStartBtn");
+
+    function openSkyInfo() {
+      skyInfoOverlay.classList.add("open");
+    }
+    function closeSkyInfo() {
+      skyInfoOverlay.classList.remove("open");
+    }
+
+    skyInfoClose.addEventListener("click", closeSkyInfo);
+    skyInfoOverlay.addEventListener("click", (e) => {
+      if (e.target === skyInfoOverlay) closeSkyInfo();
+    });
+    skyInfoStartBtn.addEventListener("click", () => {
+      closeSkyInfo();
+      sendMessage("/plan_trip");
+    });
+
+
+    // ══════════════════════════════════════════════════════════
+    // WELCOME BAR — persistent Plan a Trip + How does Sky work
+    // Visible after first bot greeting, hides after user starts
+    // a trip or sends 3+ messages. "How does Sky work?" also
+    // remains accessible via the info modal at any time.
+    // ══════════════════════════════════════════════════════════
+
+
+
+
+    welcomeBtnPlan.addEventListener("click", () => {
+      hideWelcomeBar();
+      sendMessage("/plan_trip");
+    });
+
+    welcomeBtnInfo.addEventListener("click", () => {
+      openSkyInfo();
+      // Don't hide the bar — user might still want to plan after reading
+    });
+
+    // Track user messages to auto-dismiss welcome bar after 3
+    function trackWelcomeMessage() {
+      if (welcomeDismissed) return;
+      welcomeUserMsgCount++;
+      if (welcomeUserMsgCount >= 3) {
+        hideWelcomeBar();
+      }
+    }
+
+
+    // ══════════════════════════════════════════════════════════
+    // DATE PICKER — calendar modal for selecting travel dates
+    // Triggered when bot asks for travel dates. User can pick
+    // a single date or a date range, which is sent to the chat.
+    // ══════════════════════════════════════════════════════════
+
+    const btnDate          = document.getElementById("btnDate");
+    const dateModalOverlay = document.getElementById("dateModalOverlay");
+    const dateModalClose   = document.getElementById("dateModalClose");
+    const dateModeSingle   = document.getElementById("dateModeSingle");
+    const dateModeRange    = document.getElementById("dateModeRange");
+    const dateCalPrev      = document.getElementById("dateCalPrev");
+    const dateCalNext      = document.getElementById("dateCalNext");
+    const dateCalTitle     = document.getElementById("dateCalTitle");
+    const dateCalDays      = document.getElementById("dateCalDays");
+    const dateSelectionText = document.getElementById("dateSelectionText");
+    const dateConfirmBtn   = document.getElementById("dateConfirmBtn");
+    const dateSpotlightTip = document.getElementById("dateSpotlightTip");
+
+    let datePickerMode = "single"; // "single" or "range"
+    let dateViewYear, dateViewMonth;
+    let dateSelected = null;       // Date object for single mode
+    let dateRangeStart = null;     // Date object for range start
+    let dateRangeEnd = null;       // Date object for range end
+    let dateSpotlightActive = false;
+
+    // Date patterns to detect when bot asks for dates
+    const DATE_PATTERNS = [
+      "when are you planning to travel",
+      "what dates work for you",
+      "travel dates",
+      "departure date",
+      "when would you like to",
+      "when do you want to",
+      "share your travel date",
+      "when will you be travel",
+      "preferred date",
+      "what date",
+      "which date"
+    ];
+
+    function initDatePicker() {
+      const now = new Date();
+      dateViewYear = now.getFullYear();
+      dateViewMonth = now.getMonth();
+      renderCalendar();
+    }
+
+    function formatDate(d) {
+      const day = String(d.getDate()).padStart(2, "0");
+      const mon = String(d.getMonth() + 1).padStart(2, "0");
+      const yr  = d.getFullYear();
+      return day + "/" + mon + "/" + yr;
+    }
+
+    function renderCalendar() {
+      const months = ["January","February","March","April","May","June",
+                      "July","August","September","October","November","December"];
+      dateCalTitle.textContent = months[dateViewMonth] + " " + dateViewYear;
+
+      // First day of the month (0=Sun, adjust to Mon-start)
+      const firstDay = new Date(dateViewYear, dateViewMonth, 1).getDay();
+      const offset = firstDay === 0 ? 6 : firstDay - 1;
+      const daysInMonth = new Date(dateViewYear, dateViewMonth + 1, 0).getDate();
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      let html = "";
+
+      // Empty cells before the first day
+      for (let i = 0; i < offset; i++) {
+        html += '<div class="date-cal-day empty"></div>';
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(dateViewYear, dateViewMonth, d);
+        date.setHours(0,0,0,0);
+        const isPast = date < today;
+
+        let cls = "date-cal-day";
+        if (isPast) cls += " disabled";
+        if (date.getTime() === today.getTime()) cls += " today";
+
+        if (datePickerMode === "single" && dateSelected &&
+            date.getTime() === dateSelected.getTime()) {
+          cls += " selected";
+        }
+
+        if (datePickerMode === "range") {
+          if (dateRangeStart && date.getTime() === dateRangeStart.getTime()) {
+            cls += " range-start selected";
+          }
+          if (dateRangeEnd && date.getTime() === dateRangeEnd.getTime()) {
+            cls += " range-end selected";
+          }
+          if (dateRangeStart && dateRangeEnd &&
+              date > dateRangeStart && date < dateRangeEnd) {
+            cls += " in-range";
+          }
+        }
+
+        html += '<div class="' + cls + '" data-date="' + date.toISOString() + '">' + d + '</div>';
+      }
+
+      dateCalDays.innerHTML = html;
+
+      // Attach click handlers
+      dateCalDays.querySelectorAll(".date-cal-day:not(.disabled):not(.empty)").forEach(el => {
+        el.addEventListener("click", () => onDateClick(new Date(el.dataset.date)));
+      });
+
+      updateDateSelection();
+    }
+
+    function onDateClick(date) {
+      date.setHours(0,0,0,0);
+
+      if (datePickerMode === "single") {
+        dateSelected = date;
+      } else {
+        // Range mode: first click = start, second = end
+        if (!dateRangeStart || (dateRangeStart && dateRangeEnd)) {
+          dateRangeStart = date;
+          dateRangeEnd = null;
+        } else {
+          if (date < dateRangeStart) {
+            dateRangeEnd = dateRangeStart;
+            dateRangeStart = date;
+          } else {
+            dateRangeEnd = date;
+          }
+        }
+      }
+
+      renderCalendar();
+    }
+
+    function updateDateSelection() {
+      if (datePickerMode === "single") {
+        if (dateSelected) {
+          dateSelectionText.innerHTML = "<strong>" + formatDate(dateSelected) + "</strong>";
+          dateConfirmBtn.disabled = false;
+        } else {
+          dateSelectionText.textContent = "Select a date above";
+          dateConfirmBtn.disabled = true;
+        }
+      } else {
+        if (dateRangeStart && dateRangeEnd) {
+          dateSelectionText.innerHTML = "<strong>" + formatDate(dateRangeStart) +
+            "</strong> to <strong>" + formatDate(dateRangeEnd) + "</strong>";
+          dateConfirmBtn.disabled = false;
+        } else if (dateRangeStart) {
+          dateSelectionText.innerHTML = "From <strong>" + formatDate(dateRangeStart) +
+            "</strong> — select end date";
+          dateConfirmBtn.disabled = true;
+        } else {
+          dateSelectionText.textContent = "Select start and end dates";
+          dateConfirmBtn.disabled = true;
+        }
+      }
+    }
+
+    // Mode toggle
+    dateModeSingle.addEventListener("click", () => {
+      datePickerMode = "single";
+      dateModeSingle.classList.add("active");
+      dateModeRange.classList.remove("active");
+      dateRangeStart = null;
+      dateRangeEnd = null;
+      renderCalendar();
+    });
+
+    dateModeRange.addEventListener("click", () => {
+      datePickerMode = "range";
+      dateModeRange.classList.add("active");
+      dateModeSingle.classList.remove("active");
+      dateSelected = null;
+      renderCalendar();
+    });
+
+    // Month navigation
+    dateCalPrev.addEventListener("click", () => {
+      dateViewMonth--;
+      if (dateViewMonth < 0) { dateViewMonth = 11; dateViewYear--; }
+      renderCalendar();
+    });
+    dateCalNext.addEventListener("click", () => {
+      dateViewMonth++;
+      if (dateViewMonth > 11) { dateViewMonth = 0; dateViewYear++; }
+      renderCalendar();
+    });
+
+    // Open/close modal
+    function openDatePicker() {
+      hideDateSpotlight();
+      initDatePicker();
+      dateModalOverlay.classList.add("open");
+    }
+
+    function closeDatePicker() {
+      dateModalOverlay.classList.remove("open");
+    }
+
+    btnDate.addEventListener("click", openDatePicker);
+    dateModalClose.addEventListener("click", closeDatePicker);
+    dateModalOverlay.addEventListener("click", (e) => {
+      if (e.target === dateModalOverlay) closeDatePicker();
+    });
+
+    // Confirm: send date to chat
+    dateConfirmBtn.addEventListener("click", () => {
+      let dateText = "";
+      if (datePickerMode === "single" && dateSelected) {
+        dateText = formatDate(dateSelected);
+      } else if (datePickerMode === "range" && dateRangeStart && dateRangeEnd) {
+        dateText = formatDate(dateRangeStart) + " to " + formatDate(dateRangeEnd);
+      }
+
+      if (dateText) {
+        closeDatePicker();
+        sendMessage(dateText);
+        // Hide button after date is sent — reappears when bot asks again
+        btnDate.hidden = true;
+      }
+    });
+
+    // Spotlight: show when bot asks for dates
+    function showDateSpotlight() {
+      if (dateSpotlightActive) return;
+      dateSpotlightActive = true;
+      btnDate.hidden = false;
+
+      // Activate date button (remove disabled state, add green glow)
+      btnDate.classList.remove("btn-inert");
+      btnDate.classList.add("btn-ready");
+    }
+
+    function hideDateSpotlight() {
+      if (!dateSpotlightActive) return;
+      dateSpotlightActive = false;
+      btnDate.classList.remove("btn-ready");
+      btnDate.classList.add("btn-inert");
+    }
+
+    // Also dismiss date spotlight on typing or sending
+    userInput.addEventListener("input", () => {
+      hideDateSpotlight();
+      btnDate.hidden = true;
+    });
+
+    // Send on button click
+    btnSend.addEventListener("click", () => {
+      sendMessage(inputEl.value);
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // INITIALISE
+    // Connect to Rasa when the page loads.
+    // ══════════════════════════════════════════════════════════
+    window.addEventListener("DOMContentLoaded", () => {
+      // Create the first conversation
+      const firstId = "convo_" + Date.now();
+      conversations.push({
+        id: firstId,
+        messagesHtml: "",
+        sessionId: getSessionId(),
+        pinned: false,
+        createdAt: Date.now(),
+        label: "New conversation",
+      });
+      activeConvoId = firstId;
+
+      connectToRasa();
+      renderTripHistory();   // Show the first conversation card in sidebar
+    });
+
+
+    // ══════════════════════════════════════════════════════════
+    // PRIVACY INFO POPUP
+    // Small ℹ️ button in the input bar opens a popup with
+    // GDPR privacy details. Click outside or × to close.
+    // ══════════════════════════════════════════════════════════
+    (function initPrivacyPopup() {
+      const btn = document.getElementById("privacyInfoBtn");
+      const popup = document.getElementById("privacyPopup");
+      const overlay = document.getElementById("privacyPopupOverlay");
+      const closeBtn = document.getElementById("privacyPopupClose");
+
+      function openPopup() { popup.classList.add("open"); overlay.classList.add("open"); }
+      function closePopup() { popup.classList.remove("open"); overlay.classList.remove("open"); }
+
+      btn.addEventListener("click", function(e) { e.stopPropagation(); openPopup(); });
+      closeBtn.addEventListener("click", closePopup);
+      overlay.addEventListener("click", closePopup);
+    })();
+
+    
+    // ══════════════════════════════════════════════════════════
+    // HUMAN HANDOVER MODAL
+    // When user clicks "Talk to a human", open a modal with
+    // loading animation and agent-connection message.
+    // ══════════════════════════════════════════════════════════
+    (function initHandoverModal() {
+      const overlay = document.getElementById("handoverModalOverlay");
+      const backBtn = document.getElementById("handoverBackBtn");
+      const handoverBtn = document.querySelector(".btn-handover");
+
+      if (handoverBtn) {
+        handoverBtn.addEventListener("click", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          // Open the handover modal
+          overlay.classList.add("open");
+          // Also send handover intent to Rasa
+          fetch(RASA_SERVER + "/webhooks/rest/webhook", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sender: senderId, message: "/trigger_handover" })
+          }).catch(err => console.warn("Handover request failed:", err));
+        });
+      }
+
+      // Also handle handover banner button if it appears in chat
+      document.addEventListener("click", function(e) {
+        const bannerBtn = e.target.closest(".handover-banner button, .handover-accept");
+        if (bannerBtn) {
+          overlay.classList.add("open");
+        }
+      });
+
+      backBtn.addEventListener("click", function() {
+        overlay.classList.remove("open");
+      });
+    })();
+
+
+    // ══════════════════════════════════════════════════════════
+    // INTRO TOUR — Interactive tutorial system
+    // Teaches user how Sky works via a scripted, guided
+    // conversation with typewriter effects & modals.
+    // ══════════════════════════════════════════════════════════
+
+    // tutorialActive, tutorialStep, tutorialConvoId, tutorialTypewriterTimer,
+    // destMap, peopleCount are declared earlier (before sendMessage)
+
+    const TUTORIAL_CITIES = [
+      { name: "Paris", country: "France", flag: "🇫🇷", lat: 48.8566, lon: 2.3522 },
+      { name: "Barcelona", country: "Spain", flag: "🇪🇸", lat: 41.3874, lon: 2.1686 },
+      { name: "Rome", country: "Italy", flag: "🇮🇹", lat: 41.9028, lon: 12.4964 },
+      { name: "Amsterdam", country: "Netherlands", flag: "🇳🇱", lat: 52.3676, lon: 4.9041 },
+      { name: "Prague", country: "Czechia", flag: "🇨🇿", lat: 50.0755, lon: 14.4378 },
+      { name: "Lisbon", country: "Portugal", flag: "🇵🇹", lat: 38.7223, lon: -9.1393 },
+      { name: "Vienna", country: "Austria", flag: "🇦🇹", lat: 48.2082, lon: 16.3738 },
+      { name: "Berlin", country: "Germany", flag: "🇩🇪", lat: 52.5200, lon: 13.4050 },
+      { name: "Istanbul", country: "Turkey", flag: "🇹🇷", lat: 41.0082, lon: 28.9784 },
+      { name: "Tokyo", country: "Japan", flag: "🇯🇵", lat: 35.6762, lon: 139.6503 },
+      { name: "New York", country: "USA", flag: "🇺🇸", lat: 40.7128, lon: -74.0060 },
+      { name: "London", country: "UK", flag: "🇬🇧", lat: 51.5074, lon: -0.1278 },
+    ];
+
+    // Tutorial step definitions
+    const TUTORIAL_SCRIPT = [
+      { type: "bot", text: "Hey there! 👋 I'm **Sky**, your eco-travel advisor. Let me show you how I work with a quick interactive tour!" },
+      { type: "bot", text: "**Step 1 — Choose your destination** 🗺️\nFirst, you tell me where you'd like to travel. Pick a city from the map, or just type it in the chat!", delay: 800 },
+      { type: "dest-picker", delay: 600 },
+      { type: "bot", text: "Great choice! 🌟\n\n**Step 2 — Share your location** 📍\nNow I need to know where you're traveling from. You can type your city or use GPS!", delay: 600 },
+      { type: "gps-spotlight", delay: 600 },
+      { type: "bot", text: "Berlin — got it! 🚀\n\n**Step 3 — Pick your travel dates** 📅\nWhen are you planning to go? Use the calendar to select a date or date range.", delay: 600 },
+      { type: "modal", modal: "date", delay: 500 },
+      { type: "bot", text: "Perfect timing! ☀️\n\n**Step 4 — Set your budget** 💰\nHow much would you like to spend? This helps me find the best options within your range.", delay: 600 },
+      { type: "modal", modal: "budget", delay: 500 },
+      { type: "bot", text: "Noted! 💶\n\n**Step 5 — Number of travelers** 👥\nLastly, how many people will be on the trip?", delay: 600 },
+      { type: "modal", modal: "people", delay: 500 },
+      { type: "bot", text: "🎉 **Tour complete!** You've seen all the steps.\n\nIn a real conversation, Sky would now search for:\n• 🚆 Eco-friendly transport options with CO₂ comparison\n• 🏨 Sustainable accommodation near your destination\n• 🎯 Local activities and experiences\n• 📊 A full carbon footprint breakdown\n\nReady to plan a real trip?", delay: 600 },
+      { type: "final" },
+    ];
+
+    const btnTutorial = document.getElementById("btnTutorial");
+
+    // Destination modal elements
+    const destOverlay   = document.getElementById("destModalOverlay");
+    const destClose     = document.getElementById("destModalClose");
+    const destGrid      = document.getElementById("destCitiesGrid");
+    const destMapEl     = document.getElementById("destMapContainer");
+
+    // Budget modal elements
+    const budgetOverlay = document.getElementById("budgetModalOverlay");
+    const budgetClose   = document.getElementById("budgetModalClose");
+    const budgetInput   = document.getElementById("budgetInput");
+    const budgetConfirm = document.getElementById("budgetConfirmBtn");
+
+    // People modal elements
+    const peopleOverlay = document.getElementById("peopleModalOverlay");
+    const peopleClose   = document.getElementById("peopleModalClose");
+    const peopleMinus   = document.getElementById("peopleMinus");
+    const peoplePlus    = document.getElementById("peoplePlus");
+    const peopleDisplay = document.getElementById("peopleCountDisplay");
+    const peopleLabel   = document.getElementById("peopleCountLabel");
+    const peopleConfirm = document.getElementById("peopleConfirmBtn");
+
+    // ── Start Tutorial ──
+    function startTutorial() {
+      // Save current conversation if any
+      saveCurrentConversation();
+
+      // Check if tutorial conversation already exists — switch to it
+      var existing = conversations.find(function(c) { return c.isTutorial; });
+      if (existing) {
+        // Just switch to the existing tutorial chat (show where it left off)
+        if (existing.id !== activeConvoId) {
+          switchToConversation(existing.id);
+        }
+        // Disconnect Rasa — tutorial doesn't need it
+        if (socket) socket.disconnect();
+        setStatus("online");
+        tutorialConvoId = existing.id;
+        welcomeBar.hidden = true;
+        scrollToBottom();
+        return;
+      }
+
+      // Create a tutorial conversation entry
+      const newId = "tutorial_" + Date.now();
+      tutorialConvoId = newId;
+      conversations.push({
+        id: newId,
+        messagesHtml: "",
+        sessionId: "tutorial_session",
+        pinned: false,
+        createdAt: Date.now(),
+        label: "Intro Tour",
+        isTutorial: true,
+      });
+      activeConvoId = newId;
+      tutorialActive = true;
+      tutorialStep = 0;
+
+      // Clear chat area
+      messagesEl.innerHTML = "";
+      clearQuickReplies();
+      welcomeBar.hidden = true;
+      handoverBanner.classList.remove("visible");
+
+      // Don't connect to Rasa for tutorial
+      if (socket) {
+        socket.disconnect();
+      }
+      setStatus("online");
+
+      renderTripHistory();
+      scrollToBottom();
+
+      // Start the scripted flow
+      setTimeout(function() { runTutorialStep(); }, 500);
+    }
+
+    // ── Run the current tutorial step ──
+    function runTutorialStep() {
+      if (!tutorialActive) return;
+      if (tutorialStep >= TUTORIAL_SCRIPT.length) return;
+
+      var step = TUTORIAL_SCRIPT[tutorialStep];
+      var delay = step.delay || 0;
+
+      if (step.type === "bot") {
+        setTimeout(function() {
+          showTutorialBotMessage(step.text, function() {
+            tutorialStep++;
+            runTutorialStep();
+          });
+        }, delay);
+      } else if (step.type === "prefill") {
+        setTimeout(function() {
+          prefillTutorialInput(step.text);
+          tutorialStep++;
+          // Wait for user to send
+        }, delay);
+      } else if (step.type === "dest-picker") {
+        setTimeout(function() {
+          openDestinationPicker();
+          tutorialStep++;
+          // Wait for user to pick a destination
+        }, delay);
+      } else if (step.type === "gps-spotlight") {
+        setTimeout(function() {
+          showTutorialGpsSpotlight();
+          tutorialStep++;
+          // Wait for user to click GPS and complete location
+        }, delay);
+      } else if (step.type === "modal") {
+        setTimeout(function() {
+          openTutorialModal(step.modal);
+          tutorialStep++;
+          // Wait for modal confirm
+        }, delay);
+      } else if (step.type === "final") {
+        setTimeout(function() { showTutorialFinalButtons(); }, delay);
+      }
+    }
+
+    // ── Typewriter bot message ──
+    function showTutorialBotMessage(rawText, onComplete) {
+      showTyping();
+
+      setTimeout(function() {
+        hideTyping();
+
+        var msgDiv = document.createElement("div");
+        msgDiv.className = "msg bot";
+        var bubble = document.createElement("div");
+        bubble.className = "bubble";
+        msgDiv.appendChild(bubble);
+        messagesEl.appendChild(msgDiv);
+
+        // Parse markdown-like bold + newlines
+        var formatted = rawText
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\n/g, "<br>");
+
+        // Plain text for typewriter
+        var plainText = formatted.replace(/<[^>]+>/g, "");
+
+        var cursor = document.createElement("span");
+        cursor.className = "typewriter-cursor";
+        var textSpan = document.createElement("span");
+        bubble.appendChild(textSpan);
+        bubble.appendChild(cursor);
+        scrollToBottom();
+
+        var charIndex = 0;
+        var speed = 22; // ms per character
+
+        function typeNext() {
+          if (!tutorialActive) { cursor.remove(); return; }
+          if (charIndex < plainText.length) {
+            textSpan.textContent += plainText[charIndex];
+            charIndex++;
+            scrollToBottom();
+            tutorialTypewriterTimer = setTimeout(typeNext, speed);
+          } else {
+            cursor.remove();
+            bubble.innerHTML = formatted;
+            scrollToBottom();
+            saveCurrentConversation();
+            if (onComplete) onComplete();
+          }
+        }
+
+        tutorialTypewriterTimer = setTimeout(typeNext, 80);
+      }, 700);
+    }
+
+    // ── Pre-fill input with glowing send button ──
+    function prefillTutorialInput(text) {
+      var input = document.getElementById("userInput");
+      var sendBtn = document.getElementById("btnSend");
+      var inputBar = document.querySelector(".input-bar");
+      var blurOv = document.getElementById("tutorialBlurOverlay");
+      input.value = text;
+      input.classList.add("tutorial-prefilled");
+      sendBtn.classList.add("tutorial-glow");
+      if (inputBar) inputBar.classList.add("tutorial-forced");
+      if (blurOv) blurOv.classList.add("active");
+      input.focus();
+      scrollToBottom();
+    }
+
+    function clearTutorialGlow() {
+      document.getElementById("userInput").classList.remove("tutorial-prefilled");
+      document.getElementById("btnSend").classList.remove("tutorial-glow");
+      var inputBar = document.querySelector(".input-bar");
+      if (inputBar) inputBar.classList.remove("tutorial-forced");
+      var blurOv = document.getElementById("tutorialBlurOverlay");
+      if (blurOv) blurOv.classList.remove("active");
+    }
+
+    // ── Tutorial GPS spotlight: blur screen, highlight GPS button ──
+    function showTutorialGpsSpotlight() {
+      var blurOv = document.getElementById("tutorialBlurOverlay");
+      var gpsBtn = document.getElementById("btnGps");
+      var inputBar = document.querySelector(".input-bar");
+      if (blurOv) blurOv.classList.add("active");
+      if (inputBar) inputBar.classList.add("tutorial-forced");
+      gpsBtn.classList.remove("btn-inert");
+      gpsBtn.classList.add("btn-ready");
+      gpsBtn.classList.add("tutorial-glow");
+      gpsBtn.style.zIndex = "1003";
+      gpsBtn.style.position = "relative";
+
+      // When user clicks GPS during tutorial, clear blur so modal is accessible
+      gpsBtn._tutorialClickHandler = function() {
+        clearTutorialGpsSpotlight();
+        // Give the GPS modal a higher z-index so it appears above everything
+        var gpsOv = document.getElementById("gpsModalOverlay");
+        if (gpsOv) gpsOv.style.zIndex = "1100";
+      };
+      gpsBtn.addEventListener("click", gpsBtn._tutorialClickHandler);
+    }
+
+    function clearTutorialGpsSpotlight() {
+      var blurOv = document.getElementById("tutorialBlurOverlay");
+      var gpsBtn = document.getElementById("btnGps");
+      var inputBar = document.querySelector(".input-bar");
+      if (blurOv) blurOv.classList.remove("active");
+      if (inputBar) inputBar.classList.remove("tutorial-forced");
+      gpsBtn.classList.remove("btn-ready");
+      gpsBtn.classList.remove("tutorial-glow");
+      gpsBtn.style.zIndex = "";
+      gpsBtn.style.position = "";
+      gpsBtn.classList.add("btn-inert");
+      // Remove the tutorial-specific click handler
+      if (gpsBtn._tutorialClickHandler) {
+        gpsBtn.removeEventListener("click", gpsBtn._tutorialClickHandler);
+        gpsBtn._tutorialClickHandler = null;
+      }
+    }
+
+    // ── Handle user send during tutorial ──
+    function handleTutorialSend(text) {
+      if (!tutorialActive) return false;
+      if (!text.trim()) return true;
+
+      clearTutorialGlow();
+      clearTutorialGpsSpotlight();
+
+      // Display user message bubble
+      var msgDiv = document.createElement("div");
+      msgDiv.className = "msg user";
+      var bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      msgDiv.appendChild(bubble);
+      messagesEl.appendChild(msgDiv);
+      scrollToBottom();
+
+      // Clear input
+      document.getElementById("userInput").value = "";
+
+      saveCurrentConversation();
+      // Advance to next step
+      runTutorialStep();
+
+      return true;
+    }
+
+    // ── Tutorial modals ──
+    function openTutorialModal(modalType) {
+      if (modalType === "date") {
+        openDatePicker();
+      } else if (modalType === "budget") {
+        budgetInput.value = "";
+        budgetOverlay.classList.add("open");
+      } else if (modalType === "people") {
+        peopleCount = 2;
+        peopleDisplay.textContent = "2";
+        peopleLabel.textContent = "2 travelers";
+        peopleMinus.disabled = false;
+        peopleOverlay.classList.add("open");
+      }
+    }
+
+    // ── Destination picker ──
+    function openDestinationPicker() {
+      destOverlay.classList.add("open");
+      destGrid.innerHTML = "";
+      TUTORIAL_CITIES.forEach(function(city) {
+        var btn = document.createElement("button");
+        btn.className = "dest-city-btn";
+        btn.innerHTML = '<span class="dest-flag">' + city.flag + '</span>' + city.name;
+        btn.addEventListener("click", function() {
+          selectTutorialDestination(city.name);
+        });
+        destGrid.appendChild(btn);
+      });
+
+      // Initialize Leaflet map
+      setTimeout(function() {
+        if (!destMap) {
+          destMap = L.map(destMapEl, {
+            zoomControl: true,
+            attributionControl: false,
+          }).setView([30, 10], 2);
+
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 6,
+            minZoom: 2,
+          }).addTo(destMap);
+        } else {
+          destMap.invalidateSize();
+        }
+
+        // Clear existing markers
+        destMap.eachLayer(function(layer) {
+          if (layer instanceof L.Marker) destMap.removeLayer(layer);
+        });
+
+        TUTORIAL_CITIES.forEach(function(city) {
+          var marker = L.marker([city.lat, city.lon]).addTo(destMap)
+            .bindPopup("<strong>" + city.flag + " " + city.name + "</strong><br>" + city.country);
+          marker.on("click", function() {
+            marker.openPopup();
+            setTimeout(function() { selectTutorialDestination(city.name); }, 800);
+          });
+        });
+      }, 300);
+    }
+
+    function selectTutorialDestination(cityName) {
+      destOverlay.classList.remove("open");
+      prefillTutorialInput("Hi Sky, I want to plan a trip to " + cityName);
+    }
+
+    destClose.addEventListener("click", function() { destOverlay.classList.remove("open"); });
+    destOverlay.addEventListener("click", function(e) {
+      if (e.target === destOverlay) destOverlay.classList.remove("open");
+    });
+
+    // ── Budget modal logic ──
+    document.querySelectorAll(".budget-preset-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        budgetInput.value = btn.dataset.amount;
+      });
+    });
+
+    budgetConfirm.addEventListener("click", function() {
+      var amount = budgetInput.value || "500";
+      budgetOverlay.classList.remove("open");
+      handleTutorialSend("My budget is €" + amount);
+    });
+
+    budgetClose.addEventListener("click", function() { budgetOverlay.classList.remove("open"); });
+    budgetOverlay.addEventListener("click", function(e) {
+      if (e.target === budgetOverlay) budgetOverlay.classList.remove("open");
+    });
+
+    // ── People modal logic ──
+    function updatePeopleDisplay() {
+      peopleDisplay.textContent = peopleCount;
+      peopleLabel.textContent = peopleCount === 1 ? "1 traveler" : peopleCount + " travelers";
+      peopleMinus.disabled = (peopleCount <= 1);
+    }
+
+    peopleMinus.addEventListener("click", function() {
+      if (peopleCount > 1) { peopleCount--; updatePeopleDisplay(); }
+    });
+    peoplePlus.addEventListener("click", function() {
+      if (peopleCount < 20) { peopleCount++; updatePeopleDisplay(); }
+    });
+
+    peopleConfirm.addEventListener("click", function() {
+      peopleOverlay.classList.remove("open");
+      handleTutorialSend(peopleCount + (peopleCount === 1 ? " person" : " people"));
+    });
+
+    peopleClose.addEventListener("click", function() { peopleOverlay.classList.remove("open"); });
+    peopleOverlay.addEventListener("click", function(e) {
+      if (e.target === peopleOverlay) peopleOverlay.classList.remove("open");
+    });
+
+    // ── Tutorial final buttons ──
+    function showTutorialFinalButtons() {
+      var container = document.createElement("div");
+      container.className = "tutorial-final-btns";
+
+      var btnRerun = document.createElement("button");
+      btnRerun.className = "tutorial-final-btn primary";
+      btnRerun.textContent = "🔄 Re-run the Tour";
+      btnRerun.addEventListener("click", function() {
+        restartTutorial();
+      });
+
+      container.appendChild(btnRerun);
+      messagesEl.appendChild(container);
+      scrollToBottom();
+      saveCurrentConversation();
+    }
+
+    // ── End / restart tutorial ──
+    function endTutorial() {
+      tutorialActive = false;
+      if (tutorialTypewriterTimer) {
+        clearTimeout(tutorialTypewriterTimer);
+        tutorialTypewriterTimer = null;
+      }
+      clearTutorialGlow();
+    }
+
+    function restartTutorial() {
+      endTutorial();
+      clearTutorialGpsSpotlight();
+      // Reset GPS and date buttons to inert
+      var gpsBtn = document.getElementById("btnGps");
+      var dateBtn = document.getElementById("btnDate");
+      gpsBtn.classList.add("btn-inert");
+      gpsBtn.classList.remove("btn-ready");
+      dateBtn.classList.add("btn-inert");
+      dateBtn.classList.remove("btn-ready");
+      dateBtn.hidden = true;
+
+      tutorialStep = 0;
+      tutorialActive = true;
+      messagesEl.innerHTML = "";
+      clearQuickReplies();
+      setStatus("online");
+      saveCurrentConversation();
+      setTimeout(function() { runTutorialStep(); }, 500);
+    }
+
+    // ── Button click handler ──
+    btnTutorial.addEventListener("click", startTutorial);
+
+    </script>
+
+  <!-- Privacy info popup — fixed overlay, triggered by ℹ button -->
+
+</body>
+</html>

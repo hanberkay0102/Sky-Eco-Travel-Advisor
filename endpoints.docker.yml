@@ -1,0 +1,11 @@
+# ══════════════════════════════════════════════════════════════
+# Endpoints Configuration — Docker version
+# ══════════════════════════════════════════════════════════════
+# In Docker, containers communicate using service names
+# (defined in docker-compose.yml) instead of "localhost".
+# The action server container is named "action_server",
+# so the URL uses that hostname.
+# ══════════════════════════════════════════════════════════════
+
+action_endpoint:
+  url: "http://action_server:5055/webhook"

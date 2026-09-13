@@ -1,0 +1,124 @@
+# ══════════════════════════════════════════════════════════════
+# Rasa Configuration File
+# This file controls two things:
+#   1. NLU Pipeline — how the bot understands user messages
+#   2. Core Policies — how the bot decides what to do next
+# ══════════════════════════════════════════════════════════════
+
+recipe: default.v1
+
+# Unique name for our eco-travel chatbot
+assistant_id: sky_eco_travel_advisor
+
+# Language of the training data
+language: en
+
+# ══════════════════════════════════════════════════════════════
+# NLU PIPELINE
+# Each component processes the user's message in order.
+# Think of it as an assembly line: tokenize → extract
+# features → classify intent → extract entities → handle
+# synonyms → detect fallback.
+# ══════════════════════════════════════════════════════════════
+
+pipeline:
+
+  # Step 1: Split the user's message into individual words
+  # "I want to go to Berlin" → ["I", "want", "to", "go", "to", "Berlin"]
+  - name: WhitespaceTokenizer
+    case_sensitive: false
+
+  # Step 2: Apply regex patterns as features
+  # Helps recognise patterns like email addresses, numbers, etc.
+  - name: RegexFeaturizer
+
+  # Step 3: Add word-level grammar features
+  # Looks at each word's position, capitalisation, and
+  # surrounding words to help with entity extraction.
+  - name: LexicalSyntacticFeaturizer
+
+  # Step 4: Convert words into numerical features (bag of words)
+  # The model needs numbers, not text, to learn patterns.
+  - name: CountVectorsFeaturizer
+
+  # Step 5: Character-level features (n-grams)
+  # Catches spelling variations and similar words.
+  # "travelling" and "traveling" will look similar.
+  - name: CountVectorsFeaturizer
+    analyzer: char_wb
+    min_ngram: 1
+    max_ngram: 4
+
+  # Step 6: DIET Classifier — the main brain
+  # Dual Intent and Entity Transformer: classifies the intent
+  # AND extracts entities from the same message simultaneously.
+  # 100 epochs = 100 training passes over the data.
+  - name: DIETClassifier
+    epochs: 50
+    constrain_similarities: true
+
+  # Step 7: Entity Synonym Mapper
+  # Converts extracted entity values using our synonym list.
+  # Example: "alone" → "1", "couple" → "2"
+  # This MUST come after DIETClassifier.
+  - name: EntitySynonymMapper
+
+  # Step 8: Response Selector (for retrieval intents)
+  # Not heavily used in our project but good practice to keep.
+  - name: ResponseSelector
+    epochs: 50
+    constrain_similarities: true
+
+  # Step 9: Fallback Classifier
+  # If the model's confidence is below the threshold, the
+  # intent is set to "nlu_fallback" which triggers our
+  # 2-stage fallback rules.
+  # threshold: minimum confidence to accept an intent (0.4 = 40%)
+  # ambiguity_threshold: if top two intents are too close
+  #   in confidence, treat it as uncertain (0.1 = 10% gap)
+  - name: FallbackClassifier
+    threshold: 0.65
+    ambiguity_threshold: 0.15
+
+# ══════════════════════════════════════════════════════════════
+# CORE POLICIES
+# These decide which action the bot takes next, based on the
+# conversation history and the predicted intent.
+# ══════════════════════════════════════════════════════════════
+
+policies:
+
+  # Policy 1: Memoization Policy
+  # Remembers exact conversation patterns from stories.yml.
+  # If the current conversation matches a training story
+  # exactly, it picks the next action with 100% confidence.
+  # max_history: how many previous turns to consider.
+  - name: MemoizationPolicy
+    max_history: 5
+
+  # Policy 2: Rule Policy
+  # Enforces the rules from rules.yml. Rules always win
+  # over stories when there is a conflict.
+  # This is required for our 2-stage fallback to work.
+  - name: RulePolicy
+    core_fallback_threshold: 0.5
+    core_fallback_action_name: action_default_fallback
+    enable_fallback_prediction: true
+
+  # Policy 3: UnexpecTED Intent Policy
+  # Detects when the user says something unexpected in the
+  # middle of a conversation flow. For example, if the bot
+  # asks for a destination and the user says "tell me a joke",
+  # this policy flags it as unexpected.
+  - name: UnexpecTEDIntentPolicy
+    max_history: 5
+    epochs: 50
+
+  # Policy 4: TED Policy
+  # Transformer Embedding Dialogue policy — the main dialogue
+  # manager. Uses machine learning to predict the next action
+  # based on the conversation so far. Works with stories.yml.
+  - name: TEDPolicy
+    max_history: 5
+    epochs: 50
+    constrain_similarities: true

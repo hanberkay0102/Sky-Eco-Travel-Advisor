@@ -1,0 +1,312 @@
+version: "3.1"
+
+stories:
+
+# ==================================================
+# STORY 1 - Transport Search Flow
+# User wants to search for transport options.
+# ==================================================
+
+- story: search transport with details
+  steps:
+    - intent: search_transport
+    - action: action_search_transport
+    - intent: provide_origin
+    - action: action_search_transport
+
+- story: search transport already has origin
+  steps:
+    - intent: search_transport
+    - action: action_search_transport
+
+# ==================================================
+# STORY 2 - Compare Transport
+# ==================================================
+
+- story: compare transport options
+  steps:
+    - intent: compare_transport
+    - action: action_compare_transport
+
+# ==================================================
+# STORY 3 - Accommodation Search
+# ==================================================
+
+- story: search accommodation
+  steps:
+    - intent: search_accommodation
+    - action: action_search_accommodation
+
+# ==================================================
+# STORY 4 - Activities Search
+# ==================================================
+
+- story: search activities
+  steps:
+    - intent: search_activities
+    - action: action_search_activities
+
+# ==================================================
+# STORY 5 - Carbon Footprint Flow
+# ==================================================
+
+- story: carbon footprint then offset
+  steps:
+    - intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+    - intent: ask_carbon_offset
+    - action: action_carbon_offset
+
+- story: carbon footprint only
+  steps:
+    - intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+
+- story: carbon offset only
+  steps:
+    - intent: ask_carbon_offset
+    - action: action_carbon_offset
+
+# ==================================================
+# STORY 6 - Human Handover
+# ==================================================
+
+- story: request human handover
+  steps:
+    - intent: request_human
+    - action: utter_handover_confirm
+    - intent: affirm
+    - action: action_handover_to_human
+
+- story: request human but deny
+  steps:
+    - intent: request_human
+    - action: utter_handover_confirm
+    - intent: deny
+    - action: utter_help
+
+# ==================================================
+# STORY 7 - After Trip Summary Flows
+# What the user does after seeing the trip summary.
+# ==================================================
+
+- story: search transport after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: search_transport
+    - action: action_search_transport
+
+- story: search accommodation after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: search_accommodation
+    - action: action_search_accommodation
+
+- story: ask carbon after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+
+- story: affirm after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: affirm
+    - action: action_search_transport
+
+# ==================================================
+# STORY 8 - Combined Post-Summary Flows
+# ==================================================
+
+- story: transport search then compare then offset
+  steps:
+    - intent: search_transport
+    - action: action_search_transport
+    - intent: compare_transport
+    - action: action_compare_transport
+    - intent: ask_carbon_offset
+    - action: action_carbon_offset
+
+- story: full post-summary flow
+  steps:
+    - action: action_trip_summary
+    - intent: search_transport
+    - action: action_search_transport
+    - intent: search_accommodation
+    - action: action_search_accommodation
+    - intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+    - intent: thank_you
+    - action: utter_you_are_welcome
+    - intent: goodbye
+    - action: utter_goodbye
+
+# ==================================================
+# STORY 9 - Activities After Trip Summary
+# ==================================================
+
+- story: search activities after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: search_activities
+    - action: action_search_activities
+
+# ==================================================
+# STORY 10 - Activities Then Transport
+# User chains multiple actions together.
+# ==================================================
+
+- story: activities then transport
+  steps:
+    - intent: search_activities
+    - action: action_search_activities
+    - intent: search_transport
+    - action: action_search_transport
+
+# ==================================================
+# STORY 11 - Transport Then Accommodation
+# ==================================================
+
+- story: transport then accommodation
+  steps:
+    - intent: search_transport
+    - action: action_search_transport
+    - intent: search_accommodation
+    - action: action_search_accommodation
+
+# ==================================================
+# STORY 12 - Accommodation Then Activities
+# ==================================================
+
+- story: accommodation then activities
+  steps:
+    - intent: search_accommodation
+    - action: action_search_accommodation
+    - intent: search_activities
+    - action: action_search_activities
+
+# ==================================================
+# STORY 13 - Carbon Then New Trip
+# ==================================================
+
+- story: carbon then new trip
+  steps:
+    - intent: ask_carbon_footprint
+    - action: action_calculate_carbon
+    - intent: plan_trip
+    - action: action_restart_trip
+    - action: trip_planning_form
+    - active_loop: trip_planning_form
+
+# ==================================================
+# STORY 14 - Weather Check Flow
+# User asks about weather at destination.
+# ==================================================
+
+- story: check weather at destination
+  steps:
+    - intent: ask_weather
+    - action: action_get_weather
+
+# ==================================================
+# STORY 15 - City Info Flow
+# User wants to learn about destination.
+# ==================================================
+
+- story: get city info
+  steps:
+    - intent: ask_city_info
+    - action: action_get_city_info
+
+# ==================================================
+# STORY 16 - Currency Exchange Flow
+# User wants to convert budget.
+# ==================================================
+
+- story: convert currency
+  steps:
+    - intent: ask_currency
+    - action: action_currency_convert
+
+# ==================================================
+# STORY 17 - Weather After Trip Summary
+# ==================================================
+
+- story: weather after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: ask_weather
+    - action: action_get_weather
+
+# ==================================================
+# STORY 18 - City Info After Trip Summary
+# ==================================================
+
+- story: city info after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: ask_city_info
+    - action: action_get_city_info
+
+# ==================================================
+# STORY 19 - Currency After Trip Summary
+# ==================================================
+
+- story: currency after trip summary
+  steps:
+    - action: action_trip_summary
+    - intent: ask_currency
+    - action: action_currency_convert
+
+# ==================================================
+# STORY 20 - Weather Then Activities
+# User chains weather check with activities search.
+# ==================================================
+
+- story: weather then activities
+  steps:
+    - intent: ask_weather
+    - action: action_get_weather
+    - intent: search_activities
+    - action: action_search_activities
+
+# ==================================================
+# STORY 21 - City Info Then Transport
+# User learns about city then searches transport.
+# ==================================================
+
+- story: city info then transport
+  steps:
+    - intent: ask_city_info
+    - action: action_get_city_info
+    - intent: search_transport
+    - action: action_search_transport
+
+# ==================================================
+# STORY 22 - Currency Then Accommodation
+# User checks currency then searches hotels.
+# ==================================================
+
+- story: currency then accommodation
+  steps:
+    - intent: ask_currency
+    - action: action_currency_convert
+    - intent: search_accommodation
+    - action: action_search_accommodation
+
+# ==================================================
+# STORY 23 - Full Post-Summary with New Actions
+# User uses the new features after trip summary.
+# ==================================================
+
+- story: full post-summary with new actions
+  steps:
+    - action: action_trip_summary
+    - intent: ask_weather
+    - action: action_get_weather
+    - intent: ask_city_info
+    - action: action_get_city_info
+    - intent: ask_currency
+    - action: action_currency_convert
+    - intent: search_transport
+    - action: action_search_transport

@@ -1,0 +1,55 @@
+# ══════════════════════════════════════════════════════════════
+# .dockerignore — Sky Eco-Travel Advisor
+# ══════════════════════════════════════════════════════════════
+# Files and folders to exclude from the Docker build context.
+# This keeps the Docker image small and avoids copying
+# unnecessary files (virtual env, caches, IDE settings).
+# ══════════════════════════════════════════════════════════════
+
+# Python virtual environment (large, ~1GB)
+rasa-env/
+venv/
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+
+# Rasa internal cache
+.rasa/
+
+# macOS system files
+.DS_Store
+._*
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test output files
+results/
+tests/
+.pytest_cache/
+test_*.txt
+
+# Assignment files (not needed in container)
+assignmentFile/
+assignmentExamplePhotosFromTheClass/
+
+# Git
+.git/
+.gitignore
+
+# Docker files (avoid recursive copy)
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+Dockerfile.actions
+.dockerignore
+
+# Backup files
+*.bak

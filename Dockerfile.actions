@@ -1,0 +1,36 @@
+# ══════════════════════════════════════════════════════════════
+# Dockerfile.actions — Action Server for Sky Eco-Travel Advisor
+# ══════════════════════════════════════════════════════════════
+# This container runs the custom action server (actions.py).
+# When the Rasa server needs to execute a custom action
+# (e.g. searching transport, calculating carbon footprint),
+# it sends a request to this container on port 5055.
+# ══════════════════════════════════════════════════════════════
+
+FROM rasa/rasa-sdk:3.6.2
+
+# Switch to root to install Python packages and set permissions
+USER root
+
+# Copy the actions code into the container
+COPY ./actions /app/actions
+
+# Copy the .env file with API keys
+COPY ./.env /app/.env
+
+# Install Python dependencies needed by actions.py
+# - requests: HTTP calls to external APIs (Climatiq, ORS, etc.)
+# - python-dotenv: loads API keys from .env file
+RUN pip install --no-cache-dir requests python-dotenv
+
+# Fix permissions: the base image runs as user 1001,
+# so all copied files must be readable by that user
+RUN chmod -R 755 /app/actions && chmod 644 /app/.env
+
+# Switch back to non-root user for security
+USER 1001
+
+# Expose the action server port
+EXPOSE 5055
+
+# The base image already sets the CMD to run the action server

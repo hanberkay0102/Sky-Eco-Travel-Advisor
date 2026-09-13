@@ -1,0 +1,64 @@
+# ══════════════════════════════════════════════════════════════
+# Docker Compose — Sky Eco-Travel Advisor
+# ══════════════════════════════════════════════════════════════
+# This file orchestrates three containers:
+#   1. rasa         — the Rasa server (NLU + dialogue)
+#   2. action_server — the custom action server (actions.py)
+#   3. frontend     — serves the chat UI (index.html)
+#
+# Usage:
+#   docker-compose up --build        (start all services)
+#   docker-compose down              (stop all services)
+#   Open http://localhost:8080       (chat with Sky)
+# ══════════════════════════════════════════════════════════════
+
+version: "3.8"
+
+services:
+
+  # ── Rasa Server ──────────────────────────────────────────
+  # Handles NLU (intent classification, entity extraction)
+  # and dialogue management (story/rule-based responses).
+  # The trained model is baked into the image via Dockerfile.
+  rasa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    # Override endpoints.yml so the Rasa server can find
+    # the action server by its Docker service name
+    volumes:
+      - ./endpoints.docker.yml:/app/endpoints.yml:ro
+    depends_on:
+      - action_server
+    restart: unless-stopped
+
+  # ── Action Server ────────────────────────────────────────
+  # Runs the custom Python actions (API calls to Climatiq,
+  # OpenRouteService, OpenCage, carbon calculations, etc.)
+  action_server:
+    build:
+      context: .
+      dockerfile: Dockerfile.actions
+    ports:
+      - "5055:5055"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  # ── Frontend ─────────────────────────────────────────────
+  # Serves the chat UI (index.html) using a lightweight
+  # Python HTTP server. The frontend connects to the Rasa
+  # server via Socket.IO on port 5005.
+  frontend:
+    image: python:3.10-slim
+    working_dir: /app
+    volumes:
+      - ./frontend:/app:ro
+    ports:
+      - "8080:8080"
+    command: python -m http.server 8080
+    depends_on:
+      - rasa
+    restart: unless-stopped
