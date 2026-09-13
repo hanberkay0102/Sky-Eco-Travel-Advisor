@@ -66,7 +66,7 @@ ecoTravelAdvisor/
 ### 1. Clone and set up environment
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ecoTravelAdvisor.git
+git clone https://github.com/hanberkay0102/Sky-Eco-Travel-Advisor.git
 cd ecoTravelAdvisor
 python3.10 -m venv rasa-env
 source rasa-env/bin/activate
