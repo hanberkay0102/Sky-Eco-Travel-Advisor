@@ -4362,35 +4362,84 @@
       setTimeout(() => gpsMap.invalidateSize(), 100);
     }
 
-    async function detectLocation() {
-      // Check browser support
-      if (!navigator.geolocation) {
-        showGpsToast("GPS not supported in this browser");
-        return;
-      }
+    // IP-based geolocation fallback (when browser GPS fails)
+    async function detectLocationViaIP() {
+      console.log("[Sky] Browser GPS failed, trying IP-based geolocation...");
+      showGpsToast("Using network location...", 8000);
 
+      // Try ipapi.co (free, no key, CORS enabled, 1000 req/day)
+      const ipResp = await fetch("https://ipapi.co/json/");
+      if (!ipResp.ok) throw new Error("IP geolocation request failed");
+      const ipData = await ipResp.json();
+
+      if (ipData.error || !ipData.latitude) throw new Error(ipData.reason || "No location data");
+
+      const lat = ipData.latitude;
+      const lon = ipData.longitude;
+
+      // Build location strings from IP data
+      const city = ipData.city || "";
+      const region = ipData.region || "";
+      const country = ipData.country_name || "";
+      const postal = ipData.postal || "";
+
+      const cityStr = city || country || "Unknown";
+      const mediumStr = [city, postal].filter(Boolean).join(", ") || cityStr;
+      const fullStr = [city, region, country].filter(Boolean).join(", ") || mediumStr;
+
+      // Update modal content
+      gpsFullAddress.textContent = fullStr;
+      gpsCoordsEl.textContent = lat.toFixed(5) + ", " + lon.toFixed(5);
+      gpsPreviewCity.textContent = cityStr;
+      gpsPreviewMedium.textContent = mediumStr;
+      gpsPreviewFull.textContent = fullStr;
+
+      // Store address data for compatibility
+      gpsAddrData = { city: city, country: country, postcode: postal };
+
+      // Open modal and show map
+      openGpsModal();
+      initGpsMap(lat, lon);
+      showGpsToast("Location found via network!", 2000);
+    }
+
+    async function detectLocation() {
       // Set detecting state on button
       btnGps.classList.add("detecting");
       btnGps.disabled = true;
       showGpsToast("Detecting your location...", 10000);
 
       try {
-        // Step 1: Get coordinates from browser Geolocation API
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 300000   // Cache for 5 minutes
-          });
-        });
+        // Step 1: Try browser Geolocation API first
+        let lat, lon;
 
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
+        try {
+          if (!navigator.geolocation) throw { code: 0, message: "Not supported" };
+
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: false,
+              timeout: 8000,
+              maximumAge: 300000   // Cache for 5 minutes
+            });
+          });
+          lat = position.coords.latitude;
+          lon = position.coords.longitude;
+        } catch (geoErr) {
+          // If browser GPS fails (code 2 = unavailable), use IP fallback
+          if (geoErr.code === 1) {
+            // User denied permission — no fallback
+            showGpsToast("Location access denied — please allow in browser settings");
+            return;
+          }
+          console.warn("[Sky] Browser GPS failed (code " + geoErr.code + "), using IP fallback");
+          await detectLocationViaIP();
+          return;
+        }
 
         // Step 2: Reverse geocode with Nominatim (free, no key needed)
-        // Policy: max 1 req/sec, real User-Agent required
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&addressdetails=1`,
+          "https://nominatim.openstreetmap.org/reverse?lat=" + lat + "&lon=" + lon + "&format=json&zoom=18&addressdetails=1",
           {
             headers: {
               "User-Agent": "SkyEcoTravelAdvisor/1.0 (student-project)"
@@ -4409,7 +4458,7 @@
 
         // Update modal content
         gpsFullAddress.textContent = data.display_name || "Unknown location";
-        gpsCoordsEl.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        gpsCoordsEl.textContent = lat.toFixed(5) + ", " + lon.toFixed(5);
         gpsPreviewCity.textContent = loc.city;
         gpsPreviewMedium.textContent = loc.medium;
         gpsPreviewFull.textContent = loc.full;
@@ -4421,16 +4470,8 @@
         showGpsToast("Location found!", 2000);
 
       } catch (err) {
-        if (err.code === 1) {
-          showGpsToast("Location access denied — please allow in browser settings");
-        } else if (err.code === 2) {
-          showGpsToast("Location unavailable — try again later");
-        } else if (err.code === 3) {
-          showGpsToast("Location request timed out");
-        } else {
-          showGpsToast("Could not detect location");
-        }
-        console.warn("[Sky] GPS error:", err);
+        console.error("[Sky] GPS error:", err);
+        showGpsToast("Could not detect location — " + (err.message || "try again later"));
       } finally {
         btnGps.classList.remove("detecting");
         btnGps.disabled = false;
